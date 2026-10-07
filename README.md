@@ -1,4 +1,4 @@
-# JOBTRACK 🎯
+# JOBTRACK 
 
 **Sistema web de seguimiento de postulaciones laborales**  
 Proyecto académico – Universidad Privada del Norte (UPN) Sede Chorrillos  
