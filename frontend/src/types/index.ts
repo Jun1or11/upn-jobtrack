@@ -19,6 +19,7 @@ export interface Postulacion {
 }
 
 export interface Usuario {
+  id: string;
   email: string;
   nombre: string;
   ciclo: string;

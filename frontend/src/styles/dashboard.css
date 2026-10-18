@@ -563,9 +563,39 @@
   transition: opacity var(--transition);
 }
 
-.job-card:hover .job-card__actions {
+.job-card:hover .job-card__actions,
+.job-card:focus-within .job-card__actions {
   opacity: 1;
 }
+
+@media (hover: none) { .job-card__actions { opacity: 1; } }
+.main-content { min-width: 0; }
+.list-item__meta { flex-wrap: wrap; flex-shrink: 1; }
+.job-card__actions { flex-wrap: wrap; }
+.job-card__empresa, .job-card__cargo, .list-item__empresa, .list-item__cargo { overflow-wrap: anywhere; }
+
+/* ── Selector rápido de estado (tarjeta / fila) ─────────────────── */
+.status-select {
+  width: 100%;
+  padding: 6px 28px 6px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background-color: var(--color-bg);
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--transition);
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.status-select:hover { border-color: var(--color-primary-light); }
+.status-select:focus { border-color: var(--color-border-focus); }
 
 /* ── Vista de lista (alternativa) ──────────────────────────────── */
 .list-view {

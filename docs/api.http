@@ -1,0 +1,73 @@
+@base = http://localhost:3000/api
+@token = REEMPLAZAR_CON_JWT
+@id = REEMPLAZAR_CON_UUID_POSTULACION
+@resetToken = REEMPLAZAR_CON_TOKEN_DEMO
+
+### Registro: devuelve token, expiraEn y usuario. Cambia email para repetir.
+POST {{base}}/auth/register
+Content-Type: application/json
+
+{"email":"ana@upn.pe","password":"Password123!","nombre":"Ana Estudiante","ciclo":"9","carrera":"Ingeniería de Sistemas"}
+
+### Login demo después de npm run seed. Copia token en @token.
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{"email":"n00329808@upn.pe","password":"jobtrack-demo"}
+
+### Perfil de la sesión
+GET {{base}}/auth/me
+Authorization: Bearer {{token}}
+
+### Listar solo las postulaciones propias
+GET {{base}}/postulaciones
+Authorization: Bearer {{token}}
+
+### Buscar y filtrar (también pueden usarse por separado)
+GET {{base}}/postulaciones?q=analista&estado=Entrevista
+Authorization: Bearer {{token}}
+
+### Crear: copia id de la respuesta en @id
+POST {{base}}/postulaciones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"empresa":"Empresa Prueba","cargo":"Analista de Datos","fuente":"LinkedIn","fecha":"2026-01-01","estado":"Por postular","proximaAccion":"Enviar CV","nota":"Demostración"}
+
+### Consultar: con token de otro usuario debe devolver 404
+GET {{base}}/postulaciones/{{id}}
+Authorization: Bearer {{token}}
+
+### Editar campos o cambiar estado: con token de otro usuario devuelve 404
+PATCH {{base}}/postulaciones/{{id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"cargo":"Analista Junior","estado":"Entrevista"}
+
+### Eliminar: con token de otro usuario devuelve 404
+DELETE {{base}}/postulaciones/{{id}}
+Authorization: Bearer {{token}}
+
+### Recuperación académica: requiere DEMO_PASSWORD_RESET=true en desarrollo
+POST {{base}}/auth/forgot-password
+Content-Type: application/json
+
+{"email":"ana@upn.pe"}
+
+### Copia demoToken de la respuesta anterior en @resetToken (15 minutos / un uso)
+POST {{base}}/auth/reset-password
+Content-Type: application/json
+
+{"token":"{{resetToken}}","password":"NewPassword123!"}
+
+### Logout: después, el mismo JWT debe devolver 401
+POST {{base}}/auth/logout
+Authorization: Bearer {{token}}
+
+### Eliminar cuenta: inicia sesión de nuevo y usa su contraseña actual
+DELETE {{base}}/auth/account
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"password":"NewPassword123!"}

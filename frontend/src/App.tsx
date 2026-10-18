@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
-import { haySession, obtenerSesion, cerrarSesion } from './utils/storage';
-import type { SesionAuth } from './types';
+import { obtenerSesion, cerrarSesion } from './utils/storage';
+import { api } from './utils/api';
+import type { SesionAuth, Usuario } from './types';
 import './styles/global.css';
 
 type AppView = 'login' | 'dashboard';
@@ -14,13 +15,32 @@ const App: React.FC = () => {
 
   // Verificar sesión al montar
   useEffect(() => {
+    let active = true;
     const s = obtenerSesion();
     if (s) {
-      setSesion(s);
-      setView('dashboard');
+      api<Usuario>('/auth/me').then(usuario => {
+        if (active) { setSesion({ ...s, usuario }); setView('dashboard'); }
+      }).catch(() => { /* El cliente API informa sesiones vencidas. */ })
+        .finally(() => { if (active) setChecking(false); });
+    } else {
+      setChecking(false);
     }
-    setChecking(false);
+    return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    const reset = () => { setSesion(null); setView('login'); };
+    window.addEventListener('jobtrack:logout', reset);
+    const sync = (e: StorageEvent) => { if (e.key === 'jobtrack_session' && !obtenerSesion()) reset(); };
+    window.addEventListener('storage', sync);
+    return () => { window.removeEventListener('jobtrack:logout', reset); window.removeEventListener('storage', sync); };
+  }, []);
+
+  useEffect(() => {
+    if (!sesion) return;
+    const timer = window.setTimeout(cerrarSesion, Math.max(0, sesion.expiraEn - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [sesion]);
 
   const handleLogin = () => {
     const s = obtenerSesion();
@@ -30,10 +50,9 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    cerrarSesion();
-    setSesion(null);
-    setView('login');
+  const handleLogout = async () => {
+    try { await api('/auth/logout', { method: 'POST' }); }
+    finally { cerrarSesion(); }
   };
 
   // Splash screen mientras verifica sesión

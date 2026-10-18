@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { validarCredenciales, crearSesion } from '../utils/storage';
+import { login } from '../utils/api';
+import AccountModal from '../components/AccountModal';
 import '../styles/login.css';
 
 interface LoginPageProps {
@@ -12,6 +13,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [accountMode, setAccountMode] = useState<'register' | 'recover' | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,17 +24,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       return;
     }
 
-    setLoading(true);
-    // Simular latencia de red
-    await new Promise(r => setTimeout(r, 900));
-
-    if (validarCredenciales(email, password)) {
-      crearSesion();
-      onLogin();
-    } else {
-      setError('Correo o contraseña incorrectos. Revisa las credenciales demo.');
-      setLoading(false);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || password.length > 72) {
+      setError('Revisa el correo y la contraseña (máximo 72 caracteres).'); return;
     }
+    setLoading(true);
+    try {
+      await login(email, password);
+      onLogin();
+    } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo iniciar sesión.'); }
+    finally { setLoading(false); }
   };
 
   const fillDemo = () => {
@@ -181,7 +181,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               </button>
             </div>
             <div className="login-form__forgot">
-              <a href="#" onClick={e => e.preventDefault()}>¿Olvidaste tu contraseña?</a>
+              <a href="#" onClick={e => { e.preventDefault(); setAccountMode('recover'); }}>¿Olvidaste tu contraseña?</a>
             </div>
           </div>
 
@@ -223,6 +223,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             )}
           </button>
         </form>
+        <button className="btn btn--secondary" type="button" onClick={() => setAccountMode('register')} disabled={loading}>Crear cuenta</button>
 
         {/* Hint de credenciales */}
         <div className="login-credentials-hint">
@@ -260,6 +261,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           Prototipo académico – datos de demostración · UPN Chorrillos 2026
         </div>
       </div>
+      {accountMode && <AccountModal mode={accountMode} onClose={() => setAccountMode(null)} onLogin={onLogin} />}
     </div>
   );
 };

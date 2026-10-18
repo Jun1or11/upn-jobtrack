@@ -1,115 +1,43 @@
-# Sprint 1 – Autenticación y Acceso
+# Sprint 1 — Autenticación y cuentas
 
-**Estado:** ✅ Completado  
-**Período:** Semana 1–3 (simulado en prototipo)  
-**Responsable:** Equipo JOBTRACK – UPN Chorrillos 2026
+## Implementado
 
----
+- NestJS 11 con PostgreSQL 16 mediante TypeORM y variables de entorno.
+- Migración versionada para usuarios y postulaciones; `synchronize: false`.
+- Registro con correo normalizado y único, perfil y contraseña bcrypt (12 rondas).
+- Login real: JWT HS256 con emisor, audiencia, caducidad y versión de sesión.
+- Guard que verifica JWT y usuario en la base antes de permitir acceso.
+- Restauración de sesión con `/auth/me`, cierre local por vencimiento y manejo de 401.
+- Logout con incremento de versión: invalida todos los JWT anteriores del usuario.
+- Recuperación académica explícita: token aleatorio, hash SHA-256 almacenado, vence en 15 minutos, consumo único transaccional y revocación de sesiones.
+- Eliminación de cuenta con contraseña actual y borrado de postulaciones en cascada.
+- Cuenta demo en PostgreSQL con bcrypt, creada por un seed explícito e idempotente.
+- Formulario de registro, recuperación y eliminación dentro de modales del diseño existente.
 
-## Objetivos del Sprint 1
+## Endpoints
 
-Implementar el módulo de autenticación completo, incluyendo pantalla de login, validación de credenciales, protección de rutas y gestión de sesión.
-
----
-
-## Historias de Usuario Implementadas
-
-### US-01 – Pantalla de Login
-**Como** estudiante de UPN,  
-**quiero** ver una pantalla de inicio de sesión,  
-**para** acceder al sistema de forma segura.
-
-**Criterios de aceptación:**
-- [x] Pantalla con campos de correo institucional y contraseña
-- [x] Diseño limpio y profesional con colores UPN
-- [x] Botón de "Ingresar al sistema"
-- [x] Panel de branding visible en pantallas grandes
-- [x] Responsive para móvil y laptop
-
-### US-02 – Validación de Credenciales
-**Como** estudiante,  
-**quiero** que el sistema valide mis credenciales,  
-**para** acceder solo si son correctas.
-
-**Criterios de aceptación:**
-- [x] Validar correo `n00329808@upn.pe` + contraseña `jobtrack-demo`
-- [x] Mostrar error si las credenciales son incorrectas
-- [x] Mostrar estado de carga mientras se procesa
-- [x] Redirigir al dashboard al autenticar correctamente
-
-### US-03 – Persistencia de Sesión
-**Como** usuario autenticado,  
-**quiero** que mi sesión persista al recargar la página,  
-**para** no tener que iniciar sesión cada vez.
-
-**Criterios de aceptación:**
-- [x] Guardar sesión en localStorage
-- [x] Verificar sesión al cargar la app
-- [x] Sesión expira después de 8 horas
-- [x] Splash screen mientras se verifica
-
-### US-04 – Cierre de Sesión
-**Como** usuario autenticado,  
-**quiero** poder cerrar sesión,  
-**para** proteger mi información al compartir el equipo.
-
-**Criterios de aceptación:**
-- [x] Botón "Cerrar sesión" en el sidebar
-- [x] Eliminar datos de sesión del localStorage
-- [x] Redirigir automáticamente al login
-
-### US-05 – Protección de Rutas
-**Como** sistema,  
-**quiero** proteger el dashboard,  
-**para** que solo usuarios autenticados lo accedan.
-
-**Criterios de aceptación:**
-- [x] Si no hay sesión, mostrar login (no dashboard)
-- [x] Si hay sesión válida, mostrar dashboard directamente
-- [x] Si la sesión expiró, redirigir al login
-
----
-
-## Componentes Implementados
-
-| Componente | Archivo | Descripción |
+| Método | Ruta `/api` | Acceso |
 |---|---|---|
-| `LoginPage` | `pages/LoginPage.tsx` | Pantalla completa de login con dos paneles |
-| `App` | `App.tsx` | Lógica de routing y protección de rutas |
-| `storage.ts` | `utils/storage.ts` | Funciones de auth y localStorage |
+| POST | `/auth/register` | Público |
+| POST | `/auth/login` | Público |
+| GET | `/auth/me` | JWT |
+| POST | `/auth/logout` | JWT |
+| POST | `/auth/forgot-password` | Público, solo con modo demo habilitado |
+| POST | `/auth/reset-password` | Token de recuperación |
+| DELETE | `/auth/account` | JWT y contraseña actual |
 
-## Estilos Implementados
+Archivos: `backend/src/auth/`, `backend/src/users/user.entity.ts`, `backend/src/config.ts`, `backend/src/database/`; `frontend/src/utils/api.ts`, `frontend/src/utils/storage.ts`, `frontend/src/App.tsx`, `frontend/src/pages/LoginPage.tsx` y `frontend/src/components/AccountModal.tsx`.
 
-| Archivo | Propósito |
-|---|---|
-| `styles/global.css` | Design system global, tokens, botones, inputs |
-| `styles/login.css` | Estilos específicos de la pantalla de login |
+## Validación y pruebas
 
----
+Validación de DTO en Nest y comprobaciones en formularios React. Campos inesperados rechazados. No se devuelve passwordHash ni hashes de recuperación. Contraseñas nuevas de 8–72 caracteres ASCII imprimibles, correo válido, nombre 2–80, ciclo 1–40 y carrera 2–100.
 
-## Funcionalidades Técnicas Implementadas
+Jest/Supertest verifica registro duplicado, bcrypt real en base, credenciales incorrectas, JWT ausente/inválido/vencido, perfil, recuperación, token de un uso, logout, eliminación y cascada. Ver `backend/test/app.e2e-spec.ts` y `docs/pruebas-iniciales.md`.
 
-1. **Validación de formulario** – campos requeridos y formato básico
-2. **Simulación de latencia** – 900ms para simular llamada a API
-3. **Toggle de contraseña** – ver/ocultar contraseña
-4. **Auto-completar demo** – botón para llenar las credenciales demo
-5. **Accesibilidad** – `aria-label`, `role`, `aria-modal` en todos los elementos
+## Configuración y límites
 
----
+Se requieren `DATABASE_URL` y `JWT_SECRET` válidos. La recuperación demo exige `DEMO_PASSWORD_RESET=true`; devuelve el token en pantalla/respuesta, **no envía un correo** y no está permitida en producción. Cuando está deshabilitada, el endpoint informa 503.
 
-## Credenciales Demo
+No hay refresh tokens. La sesión local guarda el JWT; la contraseña no se guarda en el navegador. Si la API no está disponible al cerrar sesión, se limpia el navegador, pero no se garantiza revocación remota hasta que la petición pueda llegar.
 
-| Campo | Valor |
-|---|---|
-| Correo | `n00329808@upn.pe` |
-| Contraseña | `jobtrack-demo` |
-| Duración sesión | 8 horas |
-
----
-
-## Pendiente (Siguiente Sprint)
-
-- [ ] Registro de nuevos usuarios
-- [ ] Recuperación de contraseña
-- [ ] Login con cuenta Google UPN
-- [ ] 2FA (verificación en dos pasos)
+Pendiente fuera del alcance: recuperación SMTP real, OAuth Google y 2FA. Instalación y comandos en el README principal.

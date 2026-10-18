@@ -6,6 +6,7 @@ interface SidebarProps {
   onLogout: () => void;
   isOpen: boolean;
   onClose: () => void;
+  onDeleteAccount: () => void;
 }
 
 interface NavItem {
@@ -16,14 +17,7 @@ interface NavItem {
   badge?: string;
 }
 
-const Icon = ({ d, w = 18 }: { d: string; w?: number }) => (
-  <svg width={w} height={w} viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d={d} />
-  </svg>
-);
-
-const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, onDeleteAccount }) => {
   const { usuario } = sesion;
   const initials = usuario.nombre
     .split(' ')
@@ -194,6 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose }) 
 
         {/* Footer / Logout */}
         <div className="sidebar__footer">
+          <button type="button" className="sidebar__logout-btn" onClick={onDeleteAccount}>Eliminar mi cuenta</button>
           <div style={{
             fontSize: '0.68rem', color: 'rgba(255,255,255,0.25)',
             padding: '4px 10px 8px', textAlign: 'center', lineHeight: 1.4,

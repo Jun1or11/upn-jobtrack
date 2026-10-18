@@ -1,51 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Postulacion, MetricasDashboard, EstadoPostulacion } from '../types';
-import { postulacionesDemo } from '../data/postulacionesDemo';
-import { cargarPostulaciones, guardarPostulaciones, generarId } from '../utils/storage';
+import { jobsApi } from '../utils/api';
 
-// ── Hook de postulaciones ──────────────────────────────────────────────────
 export function usePostulaciones() {
   const [postulaciones, setPostulaciones] = useState<Postulacion[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
 
-  // Cargar desde localStorage o inicializar con demo data
-  useEffect(() => {
-    const almacenadas = cargarPostulaciones() as Postulacion[] | null;
-    if (almacenadas && almacenadas.length > 0) {
-      setPostulaciones(almacenadas);
-    } else {
-      setPostulaciones(postulacionesDemo);
-      guardarPostulaciones(postulacionesDemo);
-    }
-    setCargando(false);
+  const recargar = useCallback(async () => {
+    setCargando(true); setError('');
+    try { setPostulaciones(await jobsApi.list()); }
+    catch (e) { setError(e instanceof Error ? e.message : 'No se pudieron cargar las postulaciones.'); }
+    finally { setCargando(false); }
   }, []);
 
-  // Persistir al cambiar
-  useEffect(() => {
-    if (!cargando) {
-      guardarPostulaciones(postulaciones);
-    }
-  }, [postulaciones, cargando]);
+  useEffect(() => { void recargar(); }, [recargar]);
 
-  const agregarPostulacion = (nueva: Omit<Postulacion, 'id' | 'createdAt'>) => {
-    const postulacion: Postulacion = {
-      ...nueva,
-      id: generarId(),
-      createdAt: new Date().toISOString(),
-    };
-    setPostulaciones(prev => [postulacion, ...prev]);
-    return postulacion;
+  const agregarPostulacion = async (datos: Omit<Postulacion, 'id' | 'createdAt'>) => {
+    const nueva = await jobsApi.create(datos);
+    setPostulaciones(prev => [nueva, ...prev]);
+    return nueva;
   };
 
-  const eliminarPostulacion = (id: string) => {
+  const eliminarPostulacion = async (id: string) => {
+    await jobsApi.remove(id);
     setPostulaciones(prev => prev.filter(p => p.id !== id));
   };
 
-  const actualizarEstado = (id: string, estado: EstadoPostulacion) => {
-    setPostulaciones(prev =>
-      prev.map(p => (p.id === id ? { ...p, estado } : p))
-    );
+  const editarPostulacion = async (id: string, datos: Partial<Omit<Postulacion, 'id' | 'createdAt'>>) => {
+    const editada = await jobsApi.update(id, datos);
+    setPostulaciones(prev => prev.map(p => p.id === id ? editada : p));
   };
+
+  const actualizarEstado = (id: string, estado: EstadoPostulacion) => editarPostulacion(id, { estado });
 
   const metricas: MetricasDashboard = {
     total: postulaciones.length,
@@ -55,12 +42,6 @@ export function usePostulaciones() {
     oferta: postulaciones.filter(p => p.estado === 'Oferta').length,
   };
 
-  return {
-    postulaciones,
-    cargando,
-    metricas,
-    agregarPostulacion,
-    eliminarPostulacion,
-    actualizarEstado,
-  };
+  return { postulaciones, cargando, error, recargar, metricas,
+    agregarPostulacion, editarPostulacion, eliminarPostulacion, actualizarEstado };
 }

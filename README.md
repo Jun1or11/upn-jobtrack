@@ -1,223 +1,266 @@
 # JOBTRACK 🎯
 
-**Sistema web de seguimiento de postulaciones laborales**  
-Proyecto académico – Universidad Privada del Norte (UPN) Sede Chorrillos  
-Curso: Ingeniería de Software · 2026
+Sistema académico de seguimiento de postulaciones laborales — UPN Chorrillos, Ingeniería de Software 2026.
 
-> ⚗️ **Prototipo académico – datos de demostración**
+## Estado actual
 
----
+Sprint 1: registro, login real con JWT y bcrypt, sesión, logout con revocación, recuperación académica y eliminación de cuenta.
 
-## 📋 Descripción
+Sprint 2: CRUD de postulaciones en PostgreSQL, propietario obligatorio, búsqueda, filtro y cambio de estado. Se conservan las tarjetas, kanban, lista, formularios, paleta azul/amarillo y responsive del frontend.
 
-JOBTRACK es una plataforma web responsive diseñada para que estudiantes de últimos ciclos y egresados recientes de UPN Chorrillos puedan gestionar y hacer seguimiento de sus postulaciones laborales de forma organizada y visual.
+La cuenta demo también vive en PostgreSQL; no hay acceso con credenciales comparadas en el frontend ni fallback silencioso a datos locales.
 
-El sistema permite registrar oportunidades, visualizarlas en formato kanban o lista, filtrarlas por estado, buscarlas por empresa/cargo, y ver métricas simples de la búsqueda laboral.
+## Tecnologías y estructura
 
----
+- Frontend: React 18, TypeScript 5, Vite 5 y CSS propio.
+- Backend: NestJS 11, TypeORM, PostgreSQL 16, JWT, bcrypt y class-validator.
+- Pruebas: Jest y Supertest.
 
-## 🚀 Instalación y Ejecución
+```text
+frontend/src/
+  components/  # Tarjetas, sidebar, formularios y diálogos existentes + AccountModal
+  pages/       # LoginPage y DashboardPage
+  hooks/       # usePostulaciones: comunicación CRUD con API
+  utils/       # api.ts y almacenamiento de sesión
+  constants/   # Estados y fuentes
+  types/       # Tipos de frontend
+  styles/      # Diseño existente
+  data/        # Ejemplos históricos; ya no inicializan el dashboard
+backend/src/
+  auth/        # DTO, registro/login, recuperación, JWT guard y cuentas
+  users/       # Entidad User
+  postulaciones/ # Entidad, DTO, controller, service y module
+  database/    # DataSource, migración y seed demo
+  common/      # Validación global
+backend/test/  # Integración HTTP sobre PostgreSQL real
+docs/          # Sprints, evidencias y ejemplos de API
+```
 
-### Requisitos previos
-- **Node.js** v18 o superior
-- **npm** v9 o superior
+## Requisitos
 
-### Pasos
+- Node.js **22 o 24 LTS** y npm.
+- PostgreSQL **16**, instalado y ejecutándose. No se sustituye por SQLite ni por una base en memoria.
+- Dos terminales para frontend y backend.
 
-```bash
-# 1. Navegar al directorio del frontend
-cd frontend
+En Windows, el servicio encontrado es `postgresql-x64-16`. Si está detenido, abre PowerShell como administrador y ejecuta:
 
-# 2. Instalar dependencias
+```powershell
+Start-Service postgresql-x64-16
+```
+
+Si `psql` no está en PATH, usa `C:\Program Files\PostgreSQL\16\bin\psql.exe` o pgAdmin.
+
+## 1. Crear bases de datos
+
+Desde pgAdmin o psql, conectado como administrador de PostgreSQL:
+
+```sql
+CREATE ROLE jobtrack LOGIN PASSWORD 'elige-una-clave-local';
+CREATE DATABASE jobtrack OWNER jobtrack;
+CREATE DATABASE jobtrack_test OWNER jobtrack;
+```
+
+No necesitas cambiar la autenticación de tu instalación. El usuario debe poder crear tablas en `jobtrack` y schemas en `jobtrack_test`.
+
+## 2. Configurar y ejecutar backend
+
+Desde la raíz:
+
+```powershell
+cd backend
 npm install
+Copy-Item .env.example .env
+```
 
-# 3. Ejecutar en modo desarrollo
+Edita **backend/.env** antes de continuar. No subas este archivo a Git.
+
+| Variable | Propósito |
+|---|---|
+| `DATABASE_URL` | `postgresql://jobtrack:CLAVE@localhost:5432/jobtrack` |
+| `TEST_DATABASE_URL` | `postgresql://jobtrack:CLAVE@localhost:5432/jobtrack_test` |
+| `JWT_SECRET` | Secreto aleatorio de al menos 32 caracteres |
+| `JWT_EXPIRES_SECONDS` | Duración del JWT; 28800 por defecto (8 horas) |
+| `PORT` | Puerto API; 3000 |
+| `FRONTEND_ORIGIN` | Origen permitido por CORS; `http://localhost:5173` |
+| `NODE_ENV` | `development` para trabajo local |
+| `DEMO_PASSWORD_RESET` | `true` habilita recuperación académica; prohibido en producción |
+| `DEMO_EMAIL`, `DEMO_PASSWORD` | Cuenta que crea el seed; valores demo por defecto |
+
+Codifica caracteres especiales de la contraseña en la URL (por ejemplo `@` → `%40`). Para generar el secreto:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Luego, desde `backend`:
+
+```powershell
+npm run migration:run
+npm run seed
+npm run start:dev
+```
+
+API: **http://localhost:3000/api**. Usa migraciones explícitas; `synchronize` está deshabilitado. `migration:revert` revierte la última migración y elimina sus tablas; no lo uses para arrancar normalmente.
+
+## 3. Ejecutar frontend
+
+En otra terminal, desde la raíz:
+
+```powershell
+cd frontend
+npm install
+Copy-Item .env.example .env
 npm run dev
 ```
 
-### URL local
-```
-http://localhost:5173
-```
+`VITE_API_URL=http://localhost:3000/api` configura la API. Reinicia Vite después de cambiar variables. Abre **http://localhost:5173**. Si cambias de puerto, actualiza también `FRONTEND_ORIGIN`.
 
----
+## Cuenta demo para capturas
 
-## 🔑 Credenciales Demo
+- Correo: `n00329808@upn.pe`
+- Contraseña: `jobtrack-demo`
+- El seed crea la cuenta con bcrypt y ocho postulaciones de ejemplo en una transacción.
+- Es idempotente: si la cuenta existe, no sobrescribe contraseña ni datos. No se ejecuta automáticamente al iniciar la API y no funciona en producción.
+- Si cambias `DEMO_EMAIL`/`DEMO_PASSWORD`, introduce esos valores manualmente; el botón de autocompletar conserva los predeterminados.
 
-| Campo | Valor |
+## Cómo probar las funciones
+
+| Función | Pasos y resultado esperado |
 |---|---|
-| **Correo** | `n00329808@upn.pe` |
-| **Contraseña** | `jobtrack-demo` |
-| Duración sesión | 8 horas (localStorage) |
+| Registro | Login → Crear cuenta. Completar nombre, correo, ciclo, carrera y contraseña confirmada. Entra con una lista vacía. Correo duplicado devuelve error. |
+| Login | Entrar con una cuenta registrada. Credenciales incorrectas muestran error. Al recargar se valida la sesión con `/auth/me`. |
+| Recuperación | ¿Olvidaste tu contraseña? → correo → Obtener token demo → nueva contraseña confirmada. El token vence en 15 minutos y solo se utiliza una vez. No se envía correo. |
+| Logout | Cerrar sesión. Vuelve al login y el JWT anterior deja de servir. Revoca todas las sesiones de esa cuenta. |
+| Eliminar cuenta | Sidebar → Eliminar mi cuenta → contraseña actual → confirmar. Borra la cuenta y sus postulaciones en cascada. Prueba con una cuenta temporal. |
+| Crear | Nueva postulación → completar campos → guardar. Aparece tras la respuesta de la API y persiste al recargar. |
+| Editar | Editar en tarjeta o lápiz en lista. Formulario precargado; guardar actualiza PostgreSQL. |
+| Eliminar | Eliminar → cancelar conserva el registro; confirmar lo elimina. |
+| Buscar y filtrar | Buscar por empresa, cargo o fuente; combinar con estado. Contador y resultados cambian; métricas muestran el total de la cuenta. |
+| Cambiar estado | Selector en tarjeta/lista o formulario. Actualiza columna y métricas. |
+| Propietario | Crear con usuario A, entrar con B: no aparece. Con el JWT de B, consultar/editar/borrar el UUID de A devuelve 404. |
+| Responsive | Probar móvil, menú hamburguesa, formulario y ambas vistas. Acciones visibles en dispositivos sin hover. |
 
-> También puedes usar el botón **"Autocompletar credenciales demo"** en la pantalla de login.
+Validaciones: empresa 2–80, cargo 3–80, fecha válida y no futura, fuentes/estados permitidos, próxima acción hasta 120 y nota hasta 300 caracteres. Registro: nombre 2–80, ciclo 1–40, carrera 2–100 y correo válido. Contraseñas nuevas: 8–72 caracteres ASCII imprimibles. El backend rechaza campos inesperados como `ownerId`, `id` o `createdAt`.
 
----
+## Persistencia y transición desde el prototipo
 
-## ✅ Funcionalidades Implementadas
+Las postulaciones se leen y escriben exclusivamente en PostgreSQL. La antigua clave `jobtrack_postulaciones` permanece intacta en el navegador, pero ya no se utiliza ni se importa automáticamente: esos datos históricos no tienen propietario verificable. Puedes conservarlos/exportarlos desde DevTools antes de realizar una migración manual, usando los ejemplos de creación de la API para la cuenta elegida.
 
-### Sprint 1 – Autenticación y Acceso
+`localStorage` conserva únicamente la sesión JWT. El backend valida firma, caducidad, existencia del usuario y versión de sesión. El frontend también cierra al vencer el tiempo. No hay JWT de renovación. Si la API está desconectada, se muestran errores y no se simula que se guardó una postulación. El cierre local siempre ocurre; si falla la petición de logout, no se puede confirmar la revocación en servidor.
 
-| Funcionalidad | Estado |
-|---|---|
-| Pantalla de login con diseño UPN | ✅ |
-| Validación de credenciales demo | ✅ |
-| Redirección al dashboard al autenticar | ✅ |
-| Sesión guardada en localStorage (8h) | ✅ |
-| Splash screen de carga | ✅ |
-| Protección del dashboard sin sesión | ✅ |
-| Mensaje de error para credenciales incorrectas | ✅ |
-| Toggle para mostrar/ocultar contraseña | ✅ |
-| Botón para cerrar sesión | ✅ |
-| Auto-completar credenciales demo | ✅ |
+## Comprobaciones y pruebas
 
-### Sprint 2 (Parcial) – Gestión de Postulaciones
+Desde `backend`:
 
-| Funcionalidad | Estado |
-|---|---|
-| Dashboard principal con sidebar y header | ✅ |
-| 4 métricas: Total, Postuladas, Entrevistas, Ofertas | ✅ |
-| Vista Kanban (columnas por estado) | ✅ |
-| Vista Lista (filas con datos completos) | ✅ |
-| Toggle entre vista kanban y lista | ✅ |
-| 8 postulaciones demo con datos reales de empresas peruanas | ✅ |
-| Botón "Nueva postulación" | ✅ |
-| Modal con formulario completo de registro | ✅ |
-| Validación de campos requeridos en el formulario | ✅ |
-| Guardar nuevas postulaciones en localStorage | ✅ |
-| Búsqueda por empresa o cargo | ✅ |
-| Filtro por estado | ✅ |
-| Contador de resultados en tiempo real | ✅ |
-| Eliminar postulación (hover en tarjeta) | ✅ |
-| Cerrar modal con Escape o click fuera | ✅ |
-| Diseño responsive para móvil y laptop | ✅ |
-| Sidebar responsive con botón hamburguesa | ✅ |
-| Badge de estado colorizado | ✅ |
-
----
-
-## 🗂️ Estructura del Proyecto
-
-```
-jobtrack/
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── BadgeEstado.tsx         ← Badge de estado (color por tipo)
-│   │   │   ├── JobCard.tsx             ← Tarjeta kanban de postulación
-│   │   │   ├── ListItemPostulacion.tsx ← Fila de vista lista
-│   │   │   ├── ModalNuevaPostulacion.tsx ← Modal de registro
-│   │   │   └── Sidebar.tsx             ← Barra lateral de navegación
-│   │   ├── pages/
-│   │   │   ├── LoginPage.tsx           ← Pantalla de inicio de sesión
-│   │   │   └── DashboardPage.tsx       ← Dashboard principal
-│   │   ├── data/
-│   │   │   └── postulacionesDemo.ts    ← 8 postulaciones de demostración
-│   │   ├── hooks/
-│   │   │   └── usePostulaciones.ts     ← Hook de gestión de estado
-│   │   ├── types/
-│   │   │   └── index.ts                ← Tipos TypeScript
-│   │   ├── utils/
-│   │   │   └── storage.ts              ← Auth + localStorage helpers
-│   │   ├── styles/
-│   │   │   ├── global.css              ← Design system global
-│   │   │   ├── login.css               ← Estilos del login
-│   │   │   └── dashboard.css           ← Estilos del dashboard
-│   │   ├── App.tsx                     ← Componente raíz con routing
-│   │   └── main.tsx                    ← Entry point de React
-│   ├── public/
-│   │   └── favicon.svg
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.ts
-├── docs/
-│   ├── sprint-1.md                     ← Documentación Sprint 1
-│   ├── sprint-2-parcial.md             ← Documentación Sprint 2
-│   └── pruebas-iniciales.md            ← 25 casos de prueba
-└── README.md
+```powershell
+npm run typecheck
+npm run build
+npm test
+npm run test:e2e
 ```
 
----
+Las pruebas e2e requieren `TEST_DATABASE_URL`. Usan PostgreSQL real: crean un schema aleatorio, ejecutan la migración y lo eliminan al finalizar; no borran el schema público. Usa una base de pruebas dedicada. Sin conexión configurada fallan explícitamente: no cambian a una base falsa ni se marcan como aprobadas.
 
-## 📦 Tecnologías Usadas
+Desde `frontend`:
 
-| Tecnología | Versión | Uso |
-|---|---|---|
-| React | 18+ | Framework UI |
-| TypeScript | 5+ | Tipado estático |
-| Vite | 6+ | Build tool y dev server |
-| CSS Vanilla | — | Estilos (sin frameworks externos) |
-| localStorage | API nativa | Persistencia de datos |
-| Google Fonts (Inter) | — | Tipografía |
+```powershell
+npm run typecheck
+npm run build
+npm run preview
+```
 
----
+Para ejecutar el backend compilado: `npm run build` y `npm start`, siempre desde `backend` con `.env` configurado.
 
-## 🎨 Diseño
+Ejemplos HTTP para REST Client o para copiar a Postman: **[docs/api.http](docs/api.http)**. Sustituye `@token`, `@id` y `@resetToken` con las respuestas reales.
 
-- **Paleta principal:** Azul oscuro `#1a3a6b` (UPN) + Amarillo dorado `#f5c518`
-- **Fondo:** Gris claro `#f4f6f9`
-- **Tipografía:** Inter (Google Fonts)
-- **Responsive:** Funciona en laptop (≥768px) y móvil (<768px)
+## Despliegue: Neon + Render + Vercel
 
----
+Arquitectura: navegador → frontend en Vercel → API NestJS en Render → PostgreSQL en Neon.
 
-## 📁 Sprint 1 – Autenticación
+### 1. Neon — base de datos
 
-Ver detalles completos en [`docs/sprint-1.md`](docs/sprint-1.md)
+Crea un proyecto PostgreSQL y copia su connection string completa desde **Connect**, incluyendo `sslmode=require` y los demás parámetros que Neon proporcione. Puedes usar la conexión directa para este proyecto académico. Pégala en `DATABASE_URL` de Render. El driver `pg` interpreta SSL desde la URL tanto en la API como en las migraciones; no se desactiva la validación de certificados.
 
-**Funcionalidades implementadas:** Login, validación, sesión, protección de rutas, cierre de sesión.
+### 2. Render — backend
 
----
+Después de hacer commit y subir tu rama, puedes crear un **Blueprint** usando `render.yaml` en la raíz. Solicitará `DATABASE_URL` y `FRONTEND_ORIGIN`, y generará `JWT_SECRET`. Si lo configuras manualmente, crea un **Web Service**:
 
-## 📁 Sprint 2 Parcial – Gestión de Postulaciones
-
-Ver detalles completos en [`docs/sprint-2-parcial.md`](docs/sprint-2-parcial.md)
-
-**Funcionalidades implementadas:** Dashboard, kanban, lista, métricas, búsqueda, filtros, registro, persistencia.
-
----
-
-## ⏳ Pendiente para Siguientes Sprints
-
-| Sprint | Funcionalidad |
+| Ajuste | Valor |
 |---|---|
-| Sprint 2 (resto) | Edición de postulaciones, detalle expandido |
-| Sprint 3 | Perfil de usuario, estadísticas con gráficos |
-| Sprint 3 | Notificaciones y recordatorios de entrevistas |
-| Sprint 3 | Drag & drop en kanban |
-| Sprint 4 | Backend real con base de datos |
-| Sprint 4 | API REST con Node.js / Express |
-| Sprint 4 | Autenticación con JWT y bcrypt |
-| Sprint 4 | Registro de nuevos usuarios |
-| Sprint 5 | Exportar a PDF / Excel |
-| Sprint 5 | Login con cuenta Google UPN |
-| Sprint 5 | Panel administrativo para coordinadores |
+| Branch | La rama que subiste, por ejemplo `feature/sprint-1-2-backend` |
+| Root Directory | `backend` |
+| Runtime | Node (el proyecto especifica Node 24.x) |
+| Build Command | `npm ci --include=dev && npm run build` |
+| Start Command | `npm run start:deploy` |
+| Health Check Path | `/api/health` |
 
----
+Variables del servicio:
 
-## 📊 Pruebas
+```dotenv
+NODE_ENV=production
+DATABASE_URL=PEGA_LA_URL_COMPLETA_DE_NEON_CON_SSL
+JWT_SECRET=SECRETO_ALEATORIO_DE_AL_MENOS_32_CARACTERES
+JWT_EXPIRES_SECONDS=28800
+FRONTEND_ORIGIN=https://tu-proyecto.vercel.app
+DEMO_PASSWORD_RESET=false
+```
 
-Ver tabla completa de 25 casos de prueba en [`docs/pruebas-iniciales.md`](docs/pruebas-iniciales.md)
+`FRONTEND_ORIGIN` debe ser el origen exacto de Vercel, sin barra final ni ruta. Si todavía no lo conoces, actualízalo al terminar el paso 3. Render asigna `PORT`; el servidor escucha en `0.0.0.0`.
 
-**Resultado:** 25/25 pruebas pasan ✅
+`start:deploy` ejecuta las migraciones compiladas antes de arrancar; si fallan, el servicio no arranca. Las migraciones ya aplicadas no se repiten. Este flujo está pensado para una instancia de la API. No ejecutes migraciones durante el build.
 
----
+Comprueba `https://tu-backend.onrender.com/api/health`: debe responder `{"status":"ok"}` después de consultar PostgreSQL. No expone credenciales. La ruta raíz `/` no es una página web de la API y puede responder 404.
 
-## 📸 Capturas para el Informe
+### 3. Vercel — frontend
 
-Para el informe académico, se recomienda capturar:
+Importa el mismo repositorio y configura:
 
-1. **Pantalla de Login** – Panel dividido con branding UPN a la izquierda
-2. **Error de credenciales** – Mensaje de error en rojo
-3. **Dashboard completo** – Vista kanban con las 4 columnas y métricas
-4. **Vista lista** – Lista de postulaciones con badges de estado
-5. **Modal de nueva postulación** – Formulario abierto con campos
-6. **Nueva postulación guardada** – Dashboard actualizado con el nuevo ítem
-7. **Búsqueda activa** – Buscador con texto y resultados filtrados
-8. **Filtro por estado** – Solo un estado seleccionado
-9. **Vista móvil** – Dashboard en pantalla pequeña con sidebar cerrado
-10. **Sidebar móvil abierto** – Sidebar desplegado sobre el contenido
+| Ajuste | Valor |
+|---|---|
+| Root Directory | `frontend` |
+| Framework | Vite |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
+| Node.js | 24.x |
 
----
+`frontend/vercel.json` ya define instalación, build y output. Agrega en las variables de Vercel:
 
-*Proyecto desarrollado como prototipo académico para el curso de Ingeniería de Software – UPN Chorrillos 2026*
+```dotenv
+VITE_API_URL=https://tu-backend.onrender.com/api
+```
+
+Despliega y copia el dominio final en `FRONTEND_ORIGIN` de Render; guarda y vuelve a desplegar el backend. Si cambias `VITE_API_URL`, vuelve a desplegar el frontend porque Vite la incorpora durante el build. Las URLs de preview de Vercel son orígenes distintos; esta configuración permite el dominio exacto que indiques.
+
+### 4. Cuenta demo y comprobación final
+
+Las migraciones no crean la cuenta demo. Para cargarla una sola vez en Neon, configura temporalmente tu `backend/.env` local con la URL de Neon y `NODE_ENV=development`, y ejecuta desde `backend`:
+
+```powershell
+npm run seed
+```
+
+Si tu terminal tiene `NODE_ENV=production`, cámbiala también para esa ejecución. El seed no modifica una cuenta que ya exista. Después restaura tu configuración local habitual.
+
+Desde Vercel, prueba registro, login, creación, edición, cambio de estado, eliminación y persistencia al recargar. La recuperación académica está deshabilitada en producción y devuelve 503; el envío real de correo sigue pendiente. El primer acceso puede tardar si los servicios están suspendidos.
+
+Los secretos de Neon y JWT van únicamente en Render o en `.env` local; la única variable que necesita Vercel es la URL pública de la API. Los archivos `.env` están ignorados por Git.
+
+### Commit
+
+Desde la raíz del repositorio:
+
+```powershell
+git status
+git add .
+git commit -m "feat: agrega backend y conexión a base de datos PostgreSQL"
+```
+
+Luego sube la rama que quieras conectar en Render/Vercel. La preparación del proyecto no publica ni conecta automáticamente tus cuentas de esos servicios.
+
+## Documentación y alcance
+
+- [Sprint 1](docs/sprint-1.md): autenticación, recuperación y cuentas.
+- [Sprint 2](docs/sprint-2-parcial.md): postulaciones por propietario.
+- [Pruebas y evidencias](docs/pruebas-iniciales.md).
+
+Pendiente fuera de estos sprints: Entrevistas, Empresas, Calendario, Estadísticas avanzadas, drag & drop, detalle con historial, PDF/Excel, recuperación por correo real y login con Google. Los accesos existentes a esos módulos permanecen visuales. La recuperación demo está identificada como académica y se deshabilita en producción.

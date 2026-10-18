@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: jobtrack-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run start:deploy
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_SECONDS
+        value: "28800"
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: DEMO_PASSWORD_RESET
+        value: "false"

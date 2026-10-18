@@ -1,11 +1,13 @@
 {
   "name": "frontend",
   "private": true,
+  "engines": { "node": "24.x" },
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit --incremental false --composite false",
     "preview": "vite preview"
   },
   "dependencies": {
