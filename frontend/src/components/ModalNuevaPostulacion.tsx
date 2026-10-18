@@ -1,62 +1,96 @@
 import React, { useState } from 'react';
-import type { Postulacion, EstadoPostulacion } from '../types';
-import { generarId } from '../utils/storage';
+import type { Postulacion } from '../types';
+import { ESTADOS, FUENTES } from '../constants/postulaciones';
 
 interface ModalNuevaPostulacionProps {
-  onGuardar: (p: Omit<Postulacion, 'id' | 'createdAt'>) => void;
+  /** Si se recibe, el modal entra en modo edición y precarga los datos. */
+  postulacion?: Postulacion;
+  onGuardar: (p: Omit<Postulacion, 'id' | 'createdAt'>) => Promise<void>;
   onCerrar: () => void;
 }
 
-const ESTADOS: EstadoPostulacion[] = ['Por postular', 'Postulado', 'Entrevista', 'Oferta'];
-const FUENTES = ['LinkedIn', 'Computrabajo', 'Indeed', 'Bumeran', 'Bolsa UPN', 'Referido', 'Web empresa', 'Otro'];
+type FormularioPostulacion = Omit<Postulacion, 'id' | 'createdAt'>;
+type FormErrors = Partial<Record<keyof FormularioPostulacion, string>>;
 
-const initialForm: Omit<Postulacion, 'id' | 'createdAt'> = {
-  empresa: '',
-  cargo: '',
-  fuente: 'LinkedIn',
-  fecha: new Date().toISOString().slice(0, 10),
-  estado: 'Por postular',
-  proximaAccion: '',
-  nota: '',
-};
+const hoy = () => new Date().toISOString().slice(0, 10);
 
-const ModalNuevaPostulacion: React.FC<ModalNuevaPostulacionProps> = ({ onGuardar, onCerrar }) => {
-  const [form, setForm] = useState(initialForm);
-  const [errors, setErrors] = useState<Partial<Record<keyof typeof initialForm, string>>>({});
+const buildInitialForm = (p?: Postulacion): FormularioPostulacion => ({
+  empresa: p?.empresa ?? '',
+  cargo: p?.cargo ?? '',
+  fuente: p?.fuente ?? 'LinkedIn',
+  fecha: p?.fecha ?? hoy(),
+  estado: p?.estado ?? 'Por postular',
+  proximaAccion: p?.proximaAccion ?? '',
+  nota: p?.nota ?? '',
+});
+
+const ModalNuevaPostulacion: React.FC<ModalNuevaPostulacionProps> = ({
+  postulacion,
+  onGuardar,
+  onCerrar,
+}) => {
+  const esEdicion = Boolean(postulacion);
+  const [form, setForm] = useState<FormularioPostulacion>(() => buildInitialForm(postulacion));
+  const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
-  const update = (field: keyof typeof initialForm, value: string) => {
+  const update = (field: keyof FormularioPostulacion, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
   const validate = (): boolean => {
-    const newErrors: typeof errors = {};
-    if (!form.empresa.trim()) newErrors.empresa = 'La empresa es requerida.';
-    if (!form.cargo.trim())   newErrors.cargo   = 'El cargo es requerido.';
-    if (!form.fecha)          newErrors.fecha   = 'La fecha es requerida.';
+    const newErrors: FormErrors = {};
+    const empresa = form.empresa.trim();
+    const cargo = form.cargo.trim();
+
+    // Empresa: requerida, entre 2 y 80 caracteres
+    if (!empresa) newErrors.empresa = 'La empresa es requerida.';
+    else if (empresa.length < 2) newErrors.empresa = 'Ingresa al menos 2 caracteres.';
+    else if (empresa.length > 80) newErrors.empresa = 'Máximo 80 caracteres.';
+
+    // Cargo: requerido, entre 3 y 80 caracteres
+    if (!cargo) newErrors.cargo = 'El cargo es requerido.';
+    else if (cargo.length < 3) newErrors.cargo = 'Ingresa al menos 3 caracteres.';
+    else if (cargo.length > 80) newErrors.cargo = 'Máximo 80 caracteres.';
+
+    // Fecha: requerida y no futura
+    if (!form.fecha) newErrors.fecha = 'La fecha es requerida.';
+    else if (form.fecha > hoy()) newErrors.fecha = 'La fecha no puede ser futura.';
+
+    // Textos opcionales con límite
+    if (form.proximaAccion.length > 120) newErrors.proximaAccion = 'Máximo 120 caracteres.';
+    if (form.nota.length > 300) newErrors.nota = 'Máximo 300 caracteres.';
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
-    setSaving(true);
-    await new Promise(r => setTimeout(r, 400));
-    onGuardar(form);
+    if (saving || !validate()) return;
+    setSaving(true); setSaveError('');
+    try { await onGuardar({
+      ...form,
+      empresa: form.empresa.trim(),
+      cargo: form.cargo.trim(),
+      proximaAccion: form.proximaAccion.trim(),
+      nota: form.nota.trim(),
+    }); } catch (e) { setSaveError(e instanceof Error ? e.message : 'No se pudo guardar.'); }
+    finally { setSaving(false); }
   };
 
   // Cerrar con Escape
   React.useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar(); };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && !saving) onCerrar(); };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [onCerrar]);
+  }, [onCerrar, saving]);
 
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title"
-      onClick={e => { if (e.target === e.currentTarget) onCerrar(); }}>
+      onClick={e => { if (!saving && e.target === e.currentTarget) onCerrar(); }}>
       <div className="modal">
         {/* Header */}
         <div className="modal__header">
@@ -75,13 +109,17 @@ const ModalNuevaPostulacion: React.FC<ModalNuevaPostulacionProps> = ({ onGuardar
               </svg>
             </div>
             <div>
-              <h2 id="modal-title" className="modal__title">Nueva postulación</h2>
+              <h2 id="modal-title" className="modal__title">
+                {esEdicion ? 'Editar postulación' : 'Nueva postulación'}
+              </h2>
               <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                Registra una nueva oportunidad laboral
+                {esEdicion
+                  ? 'Actualiza los datos de tu postulación'
+                  : 'Registra una nueva oportunidad laboral'}
               </p>
             </div>
           </div>
-          <button className="btn btn--ghost btn--sm" onClick={onCerrar}
+          <button className="btn btn--ghost btn--sm" onClick={onCerrar} disabled={saving}
             id="btn-modal-cerrar" aria-label="Cerrar modal">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2">
@@ -94,6 +132,7 @@ const ModalNuevaPostulacion: React.FC<ModalNuevaPostulacionProps> = ({ onGuardar
         {/* Body */}
         <form onSubmit={handleSubmit} noValidate>
           <div className="modal__body">
+            {saveError && <p className="login-error" role="alert">{saveError}</p>}
             <div className="form-grid">
               {/* Empresa */}
               <div className="input-group">
@@ -105,6 +144,7 @@ const ModalNuevaPostulacion: React.FC<ModalNuevaPostulacionProps> = ({ onGuardar
                   placeholder="Ej: BCP, Interbank, Alicorp..."
                   value={form.empresa}
                   onChange={e => update('empresa', e.target.value)}
+                  maxLength={80}
                   disabled={saving}
                 />
                 {errors.empresa && (
@@ -124,6 +164,7 @@ const ModalNuevaPostulacion: React.FC<ModalNuevaPostulacionProps> = ({ onGuardar
                   placeholder="Ej: Analista de Datos Jr."
                   value={form.cargo}
                   onChange={e => update('cargo', e.target.value)}
+                  maxLength={80}
                   disabled={saving}
                 />
                 {errors.cargo && (
@@ -151,6 +192,7 @@ const ModalNuevaPostulacion: React.FC<ModalNuevaPostulacionProps> = ({ onGuardar
                 <input id="nv-fecha" type="date"
                   className={`form-control${errors.fecha ? ' form-control--error' : ''}`}
                   value={form.fecha}
+                  max={hoy()}
                   onChange={e => update('fecha', e.target.value)}
                   disabled={saving}
                 />
@@ -190,26 +232,38 @@ const ModalNuevaPostulacion: React.FC<ModalNuevaPostulacionProps> = ({ onGuardar
               <div className="input-group span-2">
                 <label htmlFor="nv-prox-accion">Próxima acción</label>
                 <input id="nv-prox-accion" type="text"
-                  className="form-control"
+                  className={`form-control${errors.proximaAccion ? ' form-control--error' : ''}`}
                   placeholder="Ej: Completar prueba técnica el 25/09"
                   value={form.proximaAccion}
                   onChange={e => update('proximaAccion', e.target.value)}
+                  maxLength={120}
                   disabled={saving}
                 />
+                {errors.proximaAccion && (
+                  <span style={{ fontSize: '0.78rem', color: 'var(--color-error)' }}>
+                    {errors.proximaAccion}
+                  </span>
+                )}
               </div>
 
               {/* Nota */}
               <div className="input-group span-2">
                 <label htmlFor="nv-nota">Nota breve</label>
                 <textarea id="nv-nota"
-                  className="form-control"
+                  className={`form-control${errors.nota ? ' form-control--error' : ''}`}
                   placeholder="Observaciones sobre el proceso, salario, modalidad, etc."
                   value={form.nota}
                   onChange={e => update('nota', e.target.value)}
                   rows={3}
+                  maxLength={300}
                   disabled={saving}
                   style={{ resize: 'vertical' }}
                 />
+                {errors.nota && (
+                  <span style={{ fontSize: '0.78rem', color: 'var(--color-error)' }}>
+                    {errors.nota}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -233,7 +287,7 @@ const ModalNuevaPostulacion: React.FC<ModalNuevaPostulacionProps> = ({ onGuardar
                     stroke="currentColor" strokeWidth="2.5">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
-                  Guardar postulación
+                  {esEdicion ? 'Guardar cambios' : 'Guardar postulación'}
                 </>
               )}
             </button>

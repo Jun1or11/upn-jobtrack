@@ -1,5 +1,33 @@
 # Pruebas Iniciales – JOBTRACK
 
+## Evidencia actual — Sprint 1 y 2 con backend
+
+Las 25 pruebas de la sección histórica inferior pertenecen al prototipo localStorage y **no certifican la versión con API**. El login ahora es real, la eliminación requiere confirmación y la persistencia de postulaciones es PostgreSQL.
+
+Comprobaciones ejecutadas durante la implementación:
+
+| Comprobación | Resultado |
+|---|---|
+| Backend: `npm run typecheck` | Aprobado |
+| Backend: `npm run build` | Aprobado |
+| Frontend: `npm run build` | Aprobado |
+| Jest unitario: `npm test` | 2 suites / 5 pruebas aprobadas |
+| Jest/Supertest: `npm run test:e2e` | 1 suite / 8 pruebas aprobadas en PostgreSQL 16 real |
+| CLI `migration:run` | Migración inicial ejecutada correctamente |
+| CLI `seed` dos veces | Crea cuenta + 8 postulaciones; segunda ejecución no duplica ni sobrescribe |
+
+PostgreSQL habitual estaba instalado pero su servicio detenido y sin credenciales de proyecto. La integración se comprobó en un clúster PostgreSQL 16 temporal aislado en localhost:55432. No se sustituyó por SQLite, pg-mem ni repositorios simulados. Para repetir: configurar `TEST_DATABASE_URL` según README.
+
+Las pruebas e2e verifican: registro, duplicado, contraseña bcrypt, login incorrecto, JWT inválido/vencido, creación, búsqueda/filtro, edición, rechazo de ownerId inyectado, lectura/edición/borrado ajeno con 404, eliminación, lista vacía, recuperación de un uso, revocación y borrado de cuenta en cascada. Los mocks solo se usan en las pruebas unitarias, no como base de integración.
+
+Pendiente de verificación manual en navegador: recorrido completo de los nuevos modales y responsive en distintos dispositivos. No se dispone de navegador conectado a la sesión para certificarlo visualmente. Ejemplos para pruebas manuales de API: `docs/api.http`.
+
+Corrección histórica: PT-15 busca `analista` y corresponde a **BCP, Alicorp y Falabella (3)**; Rimac tiene cargo Practicante de Sistemas. PT-21 ahora requiere confirmar el diálogo antes de borrar.
+
+---
+
+## Registro histórico del prototipo sin backend
+
 **Documento:** Plan y Resultados de Pruebas Funcionales  
 **Sistema:** JOBTRACK – Prototipo Semana 6  
 **Versión:** 0.1.0  

@@ -1,14 +1,19 @@
 import React from 'react';
-import type { Postulacion } from '../types';
+import type { Postulacion, EstadoPostulacion } from '../types';
+import { ESTADOS } from '../constants/postulaciones';
 import BadgeEstado from './BadgeEstado';
 
 interface JobCardProps {
   postulacion: Postulacion;
   onEliminar?: (id: string) => void;
+  onEditar?: (postulacion: Postulacion) => void;
+  onCambiarEstado?: (id: string, estado: EstadoPostulacion) => void;
   delay?: number;
 }
 
-const JobCard: React.FC<JobCardProps> = ({ postulacion, onEliminar, delay = 0 }) => {
+const JobCard: React.FC<JobCardProps> = ({
+  postulacion, onEliminar, onEditar, onCambiarEstado, delay = 0,
+}) => {
   const { id, empresa, cargo, fuente, fecha, estado, proximaAccion, nota } = postulacion;
 
   const fechaFormateada = new Date(fecha + 'T12:00:00').toLocaleDateString('es-PE', {
@@ -57,6 +62,19 @@ const JobCard: React.FC<JobCardProps> = ({ postulacion, onEliminar, delay = 0 })
         </span>
       </div>
 
+      {/* Cambio rápido de estado */}
+      {onCambiarEstado && (
+        <select
+          id={`select-estado-${id}`}
+          className="status-select"
+          value={estado}
+          onChange={e => onCambiarEstado(id, e.target.value as EstadoPostulacion)}
+          aria-label={`Cambiar estado de ${cargo}`}
+        >
+          {ESTADOS.map(est => <option key={est} value={est}>{est}</option>)}
+        </select>
+      )}
+
       <hr className="job-card__divider" />
 
       {/* Próxima acción */}
@@ -74,21 +92,38 @@ const JobCard: React.FC<JobCardProps> = ({ postulacion, onEliminar, delay = 0 })
       {nota && <p className="job-card__nota">💬 {nota}</p>}
 
       {/* Acciones hover */}
-      {onEliminar && (
+      {(onEditar || onEliminar) && (
         <div className="job-card__actions">
-          <button
-            className="btn btn--danger btn--sm"
-            onClick={() => onEliminar(id)}
-            id={`btn-eliminar-${id}`}
-            aria-label={`Eliminar postulación ${cargo}`}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-            </svg>
-            Eliminar
-          </button>
+          {onEditar && (
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={() => onEditar(postulacion)}
+              id={`btn-editar-${id}`}
+              aria-label={`Editar postulación ${cargo}`}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Editar
+            </button>
+          )}
+          {onEliminar && (
+            <button
+              className="btn btn--danger btn--sm"
+              onClick={() => onEliminar(id)}
+              id={`btn-eliminar-${id}`}
+              aria-label={`Eliminar postulación ${cargo}`}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+              </svg>
+              Eliminar
+            </button>
+          )}
         </div>
       )}
     </div>

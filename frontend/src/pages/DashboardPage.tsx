@@ -1,42 +1,43 @@
 import React, { useState, useMemo } from 'react';
-import type { EstadoPostulacion, SesionAuth } from '../types';
+import type { SesionAuth, Postulacion, EstadoPostulacion } from '../types';
+import AccountModal from '../components/AccountModal';
 import { usePostulaciones } from '../hooks/usePostulaciones';
+import { ESTADOS, ESTADO_KANBAN_CLASS } from '../constants/postulaciones';
 import Sidebar from '../components/Sidebar';
 import JobCard from '../components/JobCard';
 import ListItemPostulacion from '../components/ListItemPostulacion';
 import ModalNuevaPostulacion from '../components/ModalNuevaPostulacion';
-import BadgeEstado from '../components/BadgeEstado';
+import ConfirmDialog from '../components/ConfirmDialog';
 import '../styles/dashboard.css';
 
 interface DashboardPageProps {
   sesion: SesionAuth;
-  onLogout: () => void;
+  onLogout: () => Promise<void>;
 }
 
 type Vista = 'kanban' | 'lista';
 
-const ESTADOS: EstadoPostulacion[] = ['Por postular', 'Postulado', 'Entrevista', 'Oferta'];
-
-const KANBAN_COL_STYLES: Record<EstadoPostulacion, string> = {
-  'Por postular': 'por-postular',
-  'Postulado':    'postulado',
-  'Entrevista':   'entrevista',
-  'Oferta':       'oferta',
-};
-
 const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
-  const { postulaciones, metricas, agregarPostulacion, eliminarPostulacion } = usePostulaciones();
+  const {
+    postulaciones, metricas, cargando, error, recargar,
+    agregarPostulacion, editarPostulacion, eliminarPostulacion, actualizarEstado,
+  } = usePostulaciones();
 
   const [busqueda, setBusqueda]         = useState('');
   const [filtroEstado, setFiltroEstado] = useState<string>('Todos');
   const [vista, setVista]               = useState<Vista>('kanban');
   const [modalOpen, setModalOpen]       = useState(false);
   const [sidebarOpen, setSidebarOpen]   = useState(false);
+  const [editando, setEditando]         = useState<Postulacion | null>(null);
+  const [porEliminar, setPorEliminar]   = useState<Postulacion | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   // Filtrado
   const postulacionesFiltradas = useMemo(() => {
     return postulaciones.filter(p => {
-      const q = busqueda.toLowerCase();
+      const q = busqueda.trim().toLowerCase();
       const matchBusqueda =
         !q ||
         p.empresa.toLowerCase().includes(q) ||
@@ -47,13 +48,51 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
     });
   }, [postulaciones, busqueda, filtroEstado]);
 
-  const handleGuardar = (nueva: Parameters<typeof agregarPostulacion>[0]) => {
-    agregarPostulacion(nueva);
+  // ── Acciones CRUD ──────────────────────────────────────────────
+  const abrirNueva = () => {
+    setEditando(null);
+    setModalOpen(true);
+  };
+
+  const abrirEdicion = (p: Postulacion) => {
+    setEditando(p);
+    setModalOpen(true);
+  };
+
+  const cerrarModal = () => {
     setModalOpen(false);
+    setEditando(null);
+  };
+
+  const handleGuardar = async (datos: Omit<Postulacion, 'id' | 'createdAt'>) => {
+    if (editando) {
+      await editarPostulacion(editando.id, datos);
+    } else {
+      await agregarPostulacion(datos);
+    }
+    cerrarModal();
+  };
+
+  const solicitarEliminar = (id: string) => {
+    const objetivo = postulaciones.find(p => p.id === id) ?? null;
+    setPorEliminar(objetivo);
+  };
+
+  const confirmarEliminar = async () => {
+    if (!porEliminar || deleting) return;
+    setDeleting(true); setActionError('');
+    try { await eliminarPostulacion(porEliminar.id); setPorEliminar(null); }
+    catch (e) { setActionError(e instanceof Error ? e.message : 'No se pudo eliminar.'); throw e; }
+    finally { setDeleting(false); }
+  };
+
+  const cambiarEstado = (id: string, estado: EstadoPostulacion) => {
+    setActionError('');
+    void actualizarEstado(id, estado).catch(e => setActionError(e instanceof Error ? e.message : 'No se pudo cambiar el estado.'));
   };
 
   const handleLogout = () => {
-    onLogout();
+    void onLogout().catch(() => { /* App limpia la sesión local en finally. */ });
   };
 
   return (
@@ -64,6 +103,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
         onLogout={handleLogout}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        onDeleteAccount={() => setAccountOpen(true)}
       />
 
       {/* Contenido principal */}
@@ -102,6 +142,11 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
 
         {/* Página */}
         <main className="page-body" id="main-dashboard">
+          {cargando && <p role="status">Cargando postulaciones...</p>}
+          {(error || actionError) && <div className="login-error" role="alert">
+            {error || actionError}
+            {error && <button className="btn btn--secondary btn--sm" onClick={() => void recargar()}>Reintentar</button>}
+          </div>}
           {/* ── Métricas ─────────────────────────────────────────────── */}
           <section aria-label="Métricas de postulaciones">
             <div className="metrics-grid">
@@ -235,7 +280,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
             <button
               id="btn-nueva-postulacion"
               className="btn btn--primary"
-              onClick={() => setModalOpen(true)}
+              onClick={abrirNueva}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" strokeWidth="2.5">
@@ -251,7 +296,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
             <section className="kanban-view" aria-label="Vista kanban de postulaciones">
               {ESTADOS.map(estado => {
                 const items = postulacionesFiltradas.filter(p => p.estado === estado);
-                const dotClass = KANBAN_COL_STYLES[estado];
+                const dotClass = ESTADO_KANBAN_CLASS[estado];
                 return (
                   <div key={estado} className="kanban-col"
                     id={`col-${dotClass}`}>
@@ -275,7 +320,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
                           <JobCard
                             key={p.id}
                             postulacion={p}
-                            onEliminar={eliminarPostulacion}
+                            onEliminar={solicitarEliminar}
+                            onEditar={abrirEdicion}
+                            onCambiarEstado={cambiarEstado}
                             delay={i * 50}
                           />
                         ))
@@ -309,7 +356,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
                   <ListItemPostulacion
                     key={p.id}
                     postulacion={p}
-                    onEliminar={eliminarPostulacion}
+                    onEliminar={solicitarEliminar}
+                    onEditar={abrirEdicion}
+                    onCambiarEstado={cambiarEstado}
                     delay={i * 40}
                   />
                 ))
@@ -332,11 +381,25 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
         </footer>
       </div>
 
-      {/* Modal */}
+      {/* Modal crear / editar */}
+      {accountOpen && <AccountModal mode="delete" onClose={() => setAccountOpen(false)} />}
       {modalOpen && (
         <ModalNuevaPostulacion
+          key={editando?.id ?? 'nueva'}
+          postulacion={editando ?? undefined}
           onGuardar={handleGuardar}
-          onCerrar={() => setModalOpen(false)}
+          onCerrar={cerrarModal}
+        />
+      )}
+
+      {/* Confirmación de eliminación */}
+      {porEliminar && (
+        <ConfirmDialog
+          titulo="Eliminar postulación"
+          mensaje={`¿Seguro que deseas eliminar "${porEliminar.cargo}" en ${porEliminar.empresa}? Esta acción no se puede deshacer.`}
+          textoConfirmar="Eliminar postulación"
+          onConfirmar={confirmarEliminar}
+          onCancelar={() => setPorEliminar(null)}
         />
       )}
     </div>
