@@ -1,54 +1,76 @@
-import React, { useState, useMemo } from 'react';
-import type { SesionAuth, Postulacion, EstadoPostulacion } from '../types';
+import React, { useEffect, useState } from 'react';
+import type { EstadoPostulacion, Postulacion, SesionAuth, VistaDashboard } from '../types';
 import AccountModal from '../components/AccountModal';
 import { usePostulaciones } from '../hooks/usePostulaciones';
-import { ESTADOS, ESTADO_KANBAN_CLASS } from '../constants/postulaciones';
 import Sidebar from '../components/Sidebar';
-import JobCard from '../components/JobCard';
-import ListItemPostulacion from '../components/ListItemPostulacion';
 import ModalNuevaPostulacion from '../components/ModalNuevaPostulacion';
 import ConfirmDialog from '../components/ConfirmDialog';
+import DashboardHome from './DashboardHome';
+import PostulacionesPage from './PostulacionesPage';
+import EntrevistasPage from './EntrevistasPage';
+import EmpresasPage from './EmpresasPage';
+import CalendarioPage from './CalendarioPage';
+import EstadisticasPage from './EstadisticasPage';
+import PerfilPage from './PerfilPage';
+import ConfiguracionPage from './ConfiguracionPage';
 import '../styles/dashboard.css';
+import '../styles/modules.css';
 
 interface DashboardPageProps {
   sesion: SesionAuth;
   onLogout: () => Promise<void>;
+  onSesionChange: (sesion: SesionAuth) => void;
 }
 
-type Vista = 'kanban' | 'lista';
+const VISTAS: VistaDashboard[] = [
+  'dashboard', 'postulaciones', 'entrevistas', 'empresas', 'calendario',
+  'estadisticas', 'perfil', 'configuracion',
+];
 
-const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
+const TITULOS: Record<VistaDashboard, { titulo: string; subtitulo: string }> = {
+  dashboard: { titulo: 'Dashboard de Postulaciones', subtitulo: 'Resumen de tu búsqueda laboral' },
+  postulaciones: { titulo: 'Postulaciones', subtitulo: 'Gestiona todas tus oportunidades' },
+  entrevistas: { titulo: 'Entrevistas', subtitulo: 'Procesos en etapa de entrevista' },
+  empresas: { titulo: 'Empresas', subtitulo: 'Resumen de empresas contactadas' },
+  calendario: { titulo: 'Calendario', subtitulo: 'Fechas y próximas acciones' },
+  estadisticas: { titulo: 'Estadísticas', subtitulo: 'Análisis de tu embudo de postulación' },
+  perfil: { titulo: 'Mi perfil', subtitulo: 'Información de tu cuenta' },
+  configuracion: { titulo: 'Configuración', subtitulo: 'Seguridad y datos de la cuenta' },
+};
+
+const leerVista = (): VistaDashboard => {
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  return VISTAS.includes(hash as VistaDashboard) ? hash as VistaDashboard : 'dashboard';
+};
+
+const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout, onSesionChange }) => {
   const {
     postulaciones, metricas, cargando, error, recargar,
     agregarPostulacion, editarPostulacion, eliminarPostulacion, actualizarEstado,
   } = usePostulaciones();
 
-  const [busqueda, setBusqueda]         = useState('');
-  const [filtroEstado, setFiltroEstado] = useState<string>('Todos');
-  const [vista, setVista]               = useState<Vista>('kanban');
-  const [modalOpen, setModalOpen]       = useState(false);
-  const [sidebarOpen, setSidebarOpen]   = useState(false);
-  const [editando, setEditando]         = useState<Postulacion | null>(null);
-  const [porEliminar, setPorEliminar]   = useState<Postulacion | null>(null);
+  const [vista, setVista] = useState<VistaDashboard>(leerVista);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [editando, setEditando] = useState<Postulacion | null>(null);
+  const [porEliminar, setPorEliminar] = useState<Postulacion | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const [actionError, setActionError] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  // Filtrado
-  const postulacionesFiltradas = useMemo(() => {
-    return postulaciones.filter(p => {
-      const q = busqueda.trim().toLowerCase();
-      const matchBusqueda =
-        !q ||
-        p.empresa.toLowerCase().includes(q) ||
-        p.cargo.toLowerCase().includes(q) ||
-        p.fuente.toLowerCase().includes(q);
-      const matchEstado = filtroEstado === 'Todos' || p.estado === filtroEstado;
-      return matchBusqueda && matchEstado;
-    });
-  }, [postulaciones, busqueda, filtroEstado]);
+  useEffect(() => {
+    const onHashChange = () => setVista(leerVista());
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
-  // ── Acciones CRUD ──────────────────────────────────────────────
+  const navegar = (destino: VistaDashboard) => {
+    setVista(destino);
+    window.location.hash = `/${destino}`;
+    setSidebarOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const abrirNueva = () => {
     setEditando(null);
     setModalOpen(true);
@@ -88,27 +110,85 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
 
   const cambiarEstado = (id: string, estado: EstadoPostulacion) => {
     setActionError('');
-    void actualizarEstado(id, estado).catch(e => setActionError(e instanceof Error ? e.message : 'No se pudo cambiar el estado.'));
+    void actualizarEstado(id, estado)
+      .catch(e => setActionError(e instanceof Error ? e.message : 'No se pudo cambiar el estado.'));
   };
 
   const handleLogout = () => {
     void onLogout().catch(() => { /* App limpia la sesión local en finally. */ });
   };
 
+  const { titulo, subtitulo } = TITULOS[vista];
+  const primerNombre = sesion.usuario.nombre.split(' ')[0];
+
+  const renderVista = () => {
+    switch (vista) {
+      case 'postulaciones':
+        return (
+          <PostulacionesPage
+            postulaciones={postulaciones}
+            onNueva={abrirNueva}
+            onEditar={abrirEdicion}
+            onEliminar={solicitarEliminar}
+            onCambiarEstado={cambiarEstado}
+          />
+        );
+      case 'entrevistas':
+        return (
+          <EntrevistasPage
+            postulaciones={postulaciones}
+            onEditar={abrirEdicion}
+            onCambiarEstado={cambiarEstado}
+          />
+        );
+      case 'empresas':
+        return <EmpresasPage postulaciones={postulaciones} onNavegar={navegar} />;
+      case 'calendario':
+        return <CalendarioPage postulaciones={postulaciones} onEditar={abrirEdicion} />;
+      case 'estadisticas':
+        return <EstadisticasPage postulaciones={postulaciones} />;
+      case 'perfil':
+        return (
+          <PerfilPage
+            sesion={sesion}
+            postulaciones={postulaciones}
+            onSesionChange={onSesionChange}
+          />
+        );
+      case 'configuracion':
+        return (
+          <ConfiguracionPage
+            sesion={sesion}
+            postulaciones={postulaciones}
+            onSesionChange={onSesionChange}
+            onDeleteAccount={() => setAccountOpen(true)}
+          />
+        );
+      default:
+        return (
+          <DashboardHome
+            metricas={metricas}
+            postulaciones={postulaciones}
+            onNavegar={navegar}
+            onNueva={abrirNueva}
+          />
+        );
+    }
+  };
+
   return (
     <div className="dashboard-root">
-      {/* Sidebar */}
       <Sidebar
         sesion={sesion}
         onLogout={handleLogout}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onDeleteAccount={() => setAccountOpen(true)}
+        vistaActual={vista}
+        onNavegar={navegar}
       />
 
-      {/* Contenido principal */}
       <div className="main-content">
-        {/* Header */}
         <header className="header">
           <div className="header__left">
             <button
@@ -125,249 +205,34 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
               </svg>
             </button>
             <div>
-              <div className="header__title">Dashboard de Postulaciones</div>
-              <div className="header__subtitle">Seguimiento de tu búsqueda laboral</div>
+              <div className="header__title">{titulo}</div>
+              <div className="header__subtitle">{subtitulo}</div>
             </div>
           </div>
           <div className="header__right">
-            <span className="header__proto-badge">
-              ⚗️ Prototipo académico – datos de demostración
-            </span>
+            <span className="header__proto-badge">PostgreSQL · JWT</span>
             <div className="header__user-chip">
               <div className="header__user-dot" />
-              {sesion.usuario.nombre.split(' ')[0]}
+              {primerNombre}
             </div>
           </div>
         </header>
 
-        {/* Página */}
         <main className="page-body" id="main-dashboard">
-          {cargando && <p role="status">Cargando postulaciones...</p>}
-          {(error || actionError) && <div className="login-error" role="alert">
-            {error || actionError}
-            {error && <button className="btn btn--secondary btn--sm" onClick={() => void recargar()}>Reintentar</button>}
-          </div>}
-          {/* ── Métricas ─────────────────────────────────────────────── */}
-          <section aria-label="Métricas de postulaciones">
-            <div className="metrics-grid">
-              <div className="metric-card">
-                <div className="metric-card__icon metric-card__icon--total">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                  </svg>
-                </div>
-                <div>
-                  <div id="metric-total" className="metric-card__value">{metricas.total}</div>
-                  <div className="metric-card__label">Total postulaciones</div>
-                </div>
-              </div>
-              <div className="metric-card">
-                <div className="metric-card__icon metric-card__icon--postulado">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2">
-                    <line x1="22" y1="2" x2="11" y2="13"/>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                  </svg>
-                </div>
-                <div>
-                  <div id="metric-postulado" className="metric-card__value">{metricas.postulado}</div>
-                  <div className="metric-card__label">Postuladas</div>
-                </div>
-              </div>
-              <div className="metric-card">
-                <div className="metric-card__icon metric-card__icon--entrevista">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                  </svg>
-                </div>
-                <div>
-                  <div id="metric-entrevista" className="metric-card__value">{metricas.entrevista}</div>
-                  <div className="metric-card__label">En entrevista</div>
-                </div>
-              </div>
-              <div className="metric-card">
-                <div className="metric-card__icon metric-card__icon--oferta">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" strokeWidth="2">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                </div>
-                <div>
-                  <div id="metric-oferta" className="metric-card__value">{metricas.oferta}</div>
-                  <div className="metric-card__label">Ofertas recibidas</div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* ── Barra de acciones ─────────────────────────────────── */}
-          <div className="actions-bar">
-            {/* Búsqueda */}
-            <div className="search-wrap">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"/>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <input
-                id="input-busqueda"
-                type="search"
-                className="form-control"
-                placeholder="Buscar por empresa o cargo..."
-                value={busqueda}
-                onChange={e => setBusqueda(e.target.value)}
-                aria-label="Buscar postulaciones"
-              />
-            </div>
-
-            {/* Filtro por estado */}
-            <select
-              id="select-filtro-estado"
-              className="filter-select"
-              value={filtroEstado}
-              onChange={e => setFiltroEstado(e.target.value)}
-              aria-label="Filtrar por estado"
-            >
-              <option value="Todos">Todos los estados</option>
-              {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
-            </select>
-
-            {/* Toggle de vista */}
-            <div className="view-toggle" role="group" aria-label="Modo de vista">
-              <button
-                id="btn-vista-kanban"
-                className={`view-toggle-btn${vista === 'kanban' ? ' active' : ''}`}
-                onClick={() => setVista('kanban')}
-                aria-pressed={vista === 'kanban'}
-                title="Vista kanban"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="7" height="7"/>
-                  <rect x="14" y="3" width="7" height="7"/>
-                  <rect x="14" y="14" width="7" height="7"/>
-                  <rect x="3" y="14" width="7" height="7"/>
-                </svg>
-              </button>
-              <button
-                id="btn-vista-lista"
-                className={`view-toggle-btn${vista === 'lista' ? ' active' : ''}`}
-                onClick={() => setVista('lista')}
-                aria-pressed={vista === 'lista'}
-                title="Vista lista"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2">
-                  <line x1="8" y1="6" x2="21" y2="6"/>
-                  <line x1="8" y1="12" x2="21" y2="12"/>
-                  <line x1="8" y1="18" x2="21" y2="18"/>
-                  <line x1="3" y1="6" x2="3.01" y2="6"/>
-                  <line x1="3" y1="12" x2="3.01" y2="12"/>
-                  <line x1="3" y1="18" x2="3.01" y2="18"/>
-                </svg>
-              </button>
-            </div>
-
-            {/* Resultado count */}
-            <span className="results-count">
-              {postulacionesFiltradas.length} resultado{postulacionesFiltradas.length !== 1 ? 's' : ''}
-            </span>
-
-            {/* Botón nueva postulación */}
-            <button
-              id="btn-nueva-postulacion"
-              className="btn btn--primary"
-              onClick={abrirNueva}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.5">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Nueva postulación
-            </button>
-          </div>
-
-          {/* ── Vista Kanban ──────────────────────────────────────── */}
-          {vista === 'kanban' && (
-            <section className="kanban-view" aria-label="Vista kanban de postulaciones">
-              {ESTADOS.map(estado => {
-                const items = postulacionesFiltradas.filter(p => p.estado === estado);
-                const dotClass = ESTADO_KANBAN_CLASS[estado];
-                return (
-                  <div key={estado} className="kanban-col"
-                    id={`col-${dotClass}`}>
-                    <div className="kanban-col__header">
-                      <div className="kanban-col__title">
-                        <span className={`kanban-col__dot kanban-col__dot--${dotClass}`} />
-                        {estado}
-                      </div>
-                      <span className="kanban-col__count">{items.length}</span>
-                    </div>
-                    <div className="kanban-col__body">
-                      {items.length === 0 ? (
-                        <div className="kanban-col__empty">
-                          <div style={{ fontSize: '1.5rem', marginBottom: 6 }}>
-                            {estado === 'Oferta' ? '🎯' : '📭'}
-                          </div>
-                          Sin postulaciones
-                        </div>
-                      ) : (
-                        items.map((p, i) => (
-                          <JobCard
-                            key={p.id}
-                            postulacion={p}
-                            onEliminar={solicitarEliminar}
-                            onEditar={abrirEdicion}
-                            onCambiarEstado={cambiarEstado}
-                            delay={i * 50}
-                          />
-                        ))
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </section>
-          )}
-
-          {/* ── Vista Lista ───────────────────────────────────────── */}
-          {vista === 'lista' && (
-            <section className="list-view" aria-label="Vista lista de postulaciones"
-              role="table" id="tabla-postulaciones">
-              {postulacionesFiltradas.length === 0 ? (
-                <div className="empty-state card">
-                  <div className="empty-state__icon">🔍</div>
-                  <div className="empty-state__title">Sin resultados</div>
-                  <p className="empty-state__sub">
-                    No se encontraron postulaciones con los filtros actuales.
-                    Intenta cambiar la búsqueda o el estado.
-                  </p>
-                  <button className="btn btn--secondary btn--sm"
-                    onClick={() => { setBusqueda(''); setFiltroEstado('Todos'); }}>
-                    Limpiar filtros
-                  </button>
-                </div>
-              ) : (
-                postulacionesFiltradas.map((p, i) => (
-                  <ListItemPostulacion
-                    key={p.id}
-                    postulacion={p}
-                    onEliminar={solicitarEliminar}
-                    onEditar={abrirEdicion}
-                    onCambiarEstado={cambiarEstado}
-                    delay={i * 40}
-                  />
-                ))
+          {cargando && <p className="loading-line" role="status">Cargando postulaciones...</p>}
+          {(error || actionError) && (
+            <div className="login-error" role="alert">
+              {error || actionError}
+              {error && (
+                <button className="btn btn--secondary btn--sm" onClick={() => void recargar()}>
+                  Reintentar
+                </button>
               )}
-            </section>
+            </div>
           )}
+          {renderVista()}
         </main>
 
-        {/* Footer */}
         <footer className="proto-footer">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
             stroke="var(--color-text-light)" strokeWidth="2">
@@ -376,12 +241,11 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
             <line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
           <span className="proto-footer__text">
-            Prototipo académico – datos de demostración · JOBTRACK v0.1 · UPN Chorrillos 2026
+            JOBTRACK v0.3 · Datos persistentes en PostgreSQL · UPN Chorrillos 2026
           </span>
         </footer>
       </div>
 
-      {/* Modal crear / editar */}
       {accountOpen && <AccountModal mode="delete" onClose={() => setAccountOpen(false)} />}
       {modalOpen && (
         <ModalNuevaPostulacion
@@ -392,7 +256,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ sesion, onLogout }) => {
         />
       )}
 
-      {/* Confirmación de eliminación */}
       {porEliminar && (
         <ConfirmDialog
           titulo="Eliminar postulación"

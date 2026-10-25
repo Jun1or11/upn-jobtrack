@@ -2,6 +2,7 @@ import React from 'react';
 import type { Postulacion, EstadoPostulacion } from '../types';
 import { ESTADOS } from '../constants/postulaciones';
 import BadgeEstado from './BadgeEstado';
+import { fechaRelativa, formatearFecha } from '../utils/fechas';
 
 interface JobCardProps {
   postulacion: Postulacion;
@@ -14,7 +15,7 @@ interface JobCardProps {
 const JobCard: React.FC<JobCardProps> = ({
   postulacion, onEliminar, onEditar, onCambiarEstado, delay = 0,
 }) => {
-  const { id, empresa, cargo, fuente, fecha, estado, proximaAccion, nota } = postulacion;
+  const { id, empresa, cargo, fuente, fecha, estado, proximaAccion, fechaProximaAccion, nota } = postulacion;
 
   const fechaFormateada = new Date(fecha + 'T12:00:00').toLocaleDateString('es-PE', {
     day: '2-digit', month: 'short', year: 'numeric',
@@ -78,13 +79,20 @@ const JobCard: React.FC<JobCardProps> = ({
       <hr className="job-card__divider" />
 
       {/* Próxima acción */}
-      {proximaAccion && (
+      {(proximaAccion || fechaProximaAccion) && (
         <div className="job-card__next-action">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
           </svg>
-          <span>{proximaAccion}</span>
+          <span>
+            {proximaAccion}
+            {fechaProximaAccion && (
+              <span className="job-card__date" title={formatearFecha(fechaProximaAccion)}>
+                {proximaAccion ? ' · ' : ''}{fechaRelativa(fechaProximaAccion)}
+              </span>
+            )}
+          </span>
         </div>
       )}
 

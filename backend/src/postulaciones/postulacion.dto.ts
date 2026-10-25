@@ -17,6 +17,7 @@ export class CreatePostulacionDto {
   @IsDateString({ strict: true }) @Validate(PastDate) fecha!: string;
   @IsIn(ESTADOS) estado!: Estado;
   @Trim() @IsString() @MaxLength(120) proximaAccion!: string;
+  @IsOptional() @IsDateString({ strict: true }) fechaProximaAccion?: string | null;
   @Trim() @IsString() @MaxLength(300) nota!: string;
 }
 

@@ -11,12 +11,23 @@ export interface Postulacion {
   empresa: string;
   cargo: string;
   fuente: string;
-  fecha: string;          // ISO date string  YYYY-MM-DD
+  fecha: string;             // ISO date string  YYYY-MM-DD
   estado: EstadoPostulacion;
   proximaAccion: string;
+  fechaProximaAccion?: string | null; // ISO date string opcional
   nota: string;
-  createdAt: string;      // timestamp de creación
+  createdAt: string;         // timestamp de creación
 }
+
+export type VistaDashboard =
+  | 'dashboard'
+  | 'postulaciones'
+  | 'entrevistas'
+  | 'empresas'
+  | 'calendario'
+  | 'estadisticas'
+  | 'perfil'
+  | 'configuracion';
 
 export interface Usuario {
   id: string;

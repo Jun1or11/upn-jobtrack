@@ -1,5 +1,5 @@
 import React from 'react';
-import type { SesionAuth } from '../types';
+import type { SesionAuth, VistaDashboard } from '../types';
 
 interface SidebarProps {
   sesion: SesionAuth;
@@ -7,17 +7,21 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onDeleteAccount: () => void;
+  vistaActual: VistaDashboard;
+  onNavegar: (vista: VistaDashboard) => void;
 }
 
 interface NavItem {
   id: string;
   icon: React.ReactNode;
   label: string;
-  active?: boolean;
+  vista: VistaDashboard;
   badge?: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, onDeleteAccount }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  sesion, onLogout, isOpen, onClose, onDeleteAccount, vistaActual, onNavegar,
+}) => {
   const { usuario } = sesion;
   const initials = usuario.nombre
     .split(' ')
@@ -30,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, on
     {
       id: 'nav-dashboard',
       label: 'Dashboard',
-      active: true,
+      vista: 'dashboard',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2">
@@ -44,6 +48,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, on
     {
       id: 'nav-postulaciones',
       label: 'Postulaciones',
+      vista: 'postulaciones',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2">
@@ -51,13 +56,13 @@ const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, on
           <polyline points="14 2 14 8 20 8"/>
           <line x1="16" y1="13" x2="8" y2="13"/>
           <line x1="16" y1="17" x2="8" y2="17"/>
-          <polyline points="10 9 9 9 8 9"/>
         </svg>
       ),
     },
     {
       id: 'nav-entrevistas',
       label: 'Entrevistas',
+      vista: 'entrevistas',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2">
@@ -68,6 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, on
     {
       id: 'nav-empresas',
       label: 'Empresas',
+      vista: 'empresas',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2">
@@ -79,6 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, on
     {
       id: 'nav-calendario',
       label: 'Calendario',
+      vista: 'calendario',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2">
@@ -91,10 +98,11 @@ const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, on
     },
   ];
 
-  const configItems: NavItem[] = [
+  const analysisItems: NavItem[] = [
     {
       id: 'nav-estadisticas',
       label: 'Estadísticas',
+      vista: 'estadisticas',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2">
@@ -104,9 +112,13 @@ const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, on
         </svg>
       ),
     },
+  ];
+
+  const accountItems: NavItem[] = [
     {
       id: 'nav-perfil',
       label: 'Mi perfil',
+      vista: 'perfil',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2">
@@ -115,11 +127,38 @@ const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, on
         </svg>
       ),
     },
+    {
+      id: 'nav-configuracion',
+      label: 'Configuración',
+      vista: 'configuracion',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      ),
+    },
   ];
+
+  const renderItems = (items: NavItem[]) => items.map(item => (
+    <button
+      key={item.id}
+      id={item.id}
+      className={`sidebar__nav-item${vistaActual === item.vista ? ' active' : ''}`}
+      onClick={() => { onNavegar(item.vista); onClose(); }}
+      aria-current={vistaActual === item.vista ? 'page' : undefined}
+    >
+      {item.icon}
+      {item.label}
+      {item.badge && (
+        <span className="sidebar__nav-badge">{item.badge}</span>
+      )}
+    </button>
+  ));
 
   return (
     <>
-      {/* Overlay móvil */}
       <div
         className={`sidebar-overlay${isOpen ? ' visible' : ''}`}
         onClick={onClose}
@@ -128,7 +167,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, on
 
       <nav className={`sidebar${isOpen ? ' open' : ''}`} role="navigation"
         aria-label="Menú principal">
-        {/* Logo */}
         <div className="sidebar__logo">
           <div className="sidebar__logo-icon">JT</div>
           <span className="sidebar__logo-text">
@@ -136,7 +174,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, on
           </span>
         </div>
 
-        {/* Usuario */}
         <div className="sidebar__user-card">
           <div className="sidebar__user-avatar">{initials}</div>
           <div className="sidebar__user-name">{usuario.nombre}</div>
@@ -146,54 +183,23 @@ const Sidebar: React.FC<SidebarProps> = ({ sesion, onLogout, isOpen, onClose, on
           </div>
         </div>
 
-        {/* Nav principal */}
         <div className="sidebar__nav">
           <div className="sidebar__nav-label">Principal</div>
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              id={item.id}
-              className={`sidebar__nav-item${item.active ? ' active' : ''}`}
-              onClick={onClose}
-              aria-current={item.active ? 'page' : undefined}
-            >
-              {item.icon}
-              {item.label}
-              {item.badge && (
-                <span style={{
-                  marginLeft: 'auto', background: 'var(--color-accent)',
-                  color: 'var(--color-primary-dark)', fontSize: '0.68rem',
-                  fontWeight: 700, padding: '1px 7px',
-                  borderRadius: 'var(--radius-full)',
-                }}>
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          ))}
+          {renderItems(navItems)}
 
-          <div className="sidebar__nav-label" style={{ marginTop: 8 }}>Configuración</div>
-          {configItems.map(item => (
-            <button
-              key={item.id}
-              id={item.id}
-              className="sidebar__nav-item"
-              onClick={onClose}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
+          <div className="sidebar__nav-label" style={{ marginTop: 8 }}>Análisis</div>
+          {renderItems(analysisItems)}
+
+          <div className="sidebar__nav-label" style={{ marginTop: 8 }}>Cuenta</div>
+          {renderItems(accountItems)}
         </div>
 
-        {/* Footer / Logout */}
         <div className="sidebar__footer">
-          <button type="button" className="sidebar__logout-btn" onClick={onDeleteAccount}>Eliminar mi cuenta</button>
-          <div style={{
-            fontSize: '0.68rem', color: 'rgba(255,255,255,0.25)',
-            padding: '4px 10px 8px', textAlign: 'center', lineHeight: 1.4,
-          }}>
-            Prototipo académico<br />datos de demostración
+          <button type="button" className="sidebar__logout-btn" onClick={onDeleteAccount}>
+            Eliminar mi cuenta
+          </button>
+          <div className="sidebar__footer-note">
+            JOBTRACK · UPN Chorrillos 2026
           </div>
           <button
             id="btn-cerrar-sesion"

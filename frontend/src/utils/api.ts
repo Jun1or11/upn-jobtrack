@@ -37,6 +37,15 @@ export async function register(datos: Omit<Usuario, 'id'> & { password: string }
   return session;
 }
 
+export const authApi = {
+  updateProfile: (datos: Pick<Usuario, 'nombre' | 'ciclo' | 'carrera'>) =>
+    api<Usuario>('/auth/me', { method: 'PATCH', body: JSON.stringify(datos) }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api<SesionAuth>('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) }),
+  deleteAccount: (password: string) =>
+    api<{ message: string }>('/auth/account', { method: 'DELETE', body: JSON.stringify({ password }) }),
+};
+
 export const jobsApi = {
   list: () => api<Postulacion[]>('/postulaciones'),
   create: (datos: Omit<Postulacion, 'id' | 'createdAt'>) => api<Postulacion>('/postulaciones', { method: 'POST', body: JSON.stringify(datos) }),

@@ -2,6 +2,7 @@ import React from 'react';
 import type { Postulacion, EstadoPostulacion } from '../types';
 import { ESTADOS } from '../constants/postulaciones';
 import BadgeEstado from './BadgeEstado';
+import { fechaRelativa } from '../utils/fechas';
 
 interface ListItemPostulacionProps {
   postulacion: Postulacion;
@@ -14,7 +15,7 @@ interface ListItemPostulacionProps {
 const ListItemPostulacion: React.FC<ListItemPostulacionProps> = ({
   postulacion, onEliminar, onEditar, onCambiarEstado, delay = 0,
 }) => {
-  const { id, empresa, cargo, fuente, fecha, estado, proximaAccion } = postulacion;
+  const { id, empresa, cargo, fuente, fecha, estado, proximaAccion, fechaProximaAccion } = postulacion;
 
   const fechaFormateada = new Date(fecha + 'T12:00:00').toLocaleDateString('es-PE', {
     day: '2-digit', month: 'short', year: 'numeric',
@@ -43,13 +44,14 @@ const ListItemPostulacion: React.FC<ListItemPostulacionProps> = ({
           <span className="list-item__meta-label">Fecha</span>
           <span className="list-item__meta-value">{fechaFormateada}</span>
         </div>
-        {proximaAccion && (
+        {(proximaAccion || fechaProximaAccion) && (
           <div className="list-item__meta-item" style={{ maxWidth: 200 }}>
             <span className="list-item__meta-label">Próxima acción</span>
             <span className="list-item__meta-value" style={{
               textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
               {proximaAccion}
+              {fechaProximaAccion && ` · ${fechaRelativa(fechaProximaAccion)}`}
             </span>
           </div>
         )}

@@ -8,6 +8,8 @@ Sprint 1: registro, login real con JWT y bcrypt, sesión, logout con revocación
 
 Sprint 2: CRUD de postulaciones en PostgreSQL, propietario obligatorio, búsqueda, filtro y cambio de estado. Se conservan las tarjetas, kanban, lista, formularios, paleta azul/amarillo y responsive del frontend.
 
+Sprint 3: navegación funcional con rutas hash, dashboard con próximas acciones, módulos de Postulaciones, Entrevistas, Empresas, Calendario y Estadísticas, edición de perfil, cambio de contraseña, exportación CSV y campo opcional `fechaProximaAccion`.
+
 La cuenta demo también vive en PostgreSQL; no hay acceso con credenciales comparadas en el frontend ni fallback silencioso a datos locales.
 
 ## Tecnologías y estructura
@@ -18,10 +20,11 @@ La cuenta demo también vive en PostgreSQL; no hay acceso con credenciales compa
 
 ```text
 frontend/src/
-  components/  # Tarjetas, sidebar, formularios y diálogos existentes + AccountModal
-  pages/       # LoginPage y DashboardPage
+  components/  # Sidebar, tarjetas, formularios, PostulacionesManager y diálogos
+  pages/       # Login, Dashboard y módulos: Postulaciones, Entrevistas, Empresas,
+               # Calendario, Estadísticas, Perfil y Configuración
   hooks/       # usePostulaciones: comunicación CRUD con API
-  utils/       # api.ts y almacenamiento de sesión
+  utils/       # api.ts, fechas.ts y almacenamiento de sesión
   constants/   # Estados y fuentes
   types/       # Tipos de frontend
   styles/      # Diseño existente
@@ -132,15 +135,23 @@ npm run dev
 | Recuperación | ¿Olvidaste tu contraseña? → correo → Obtener token demo → nueva contraseña confirmada. El token vence en 15 minutos y solo se utiliza una vez. No se envía correo. |
 | Logout | Cerrar sesión. Vuelve al login y el JWT anterior deja de servir. Revoca todas las sesiones de esa cuenta. |
 | Eliminar cuenta | Sidebar → Eliminar mi cuenta → contraseña actual → confirmar. Borra la cuenta y sus postulaciones en cascada. Prueba con una cuenta temporal. |
-| Crear | Nueva postulación → completar campos → guardar. Aparece tras la respuesta de la API y persiste al recargar. |
-| Editar | Editar en tarjeta o lápiz en lista. Formulario precargado; guardar actualiza PostgreSQL. |
+| Navegación | El sidebar cambia de módulo sin recargar. La URL usa `#/dashboard`, `#/postulaciones`, `#/entrevistas`, `#/empresas`, `#/calendario`, `#/estadisticas`, `#/perfil` y `#/configuracion`; atrás/adelante del navegador funciona. |
+| Dashboard | Muestra métricas, próximas acciones ordenadas por fecha, actividad reciente y accesos rápidos a los demás módulos. |
+| Crear | Nueva postulación → completar campos → guardar. Aparece tras la respuesta de la API y persiste al recargar. La fecha de próxima acción es opcional. |
+| Editar | Editar en tarjeta o lápiz en lista. Formulario precargado; guardar actualiza PostgreSQL, incluyendo `fechaProximaAccion`. |
 | Eliminar | Eliminar → cancelar conserva el registro; confirmar lo elimina. |
 | Buscar y filtrar | Buscar por empresa, cargo o fuente; combinar con estado. Contador y resultados cambian; métricas muestran el total de la cuenta. |
-| Cambiar estado | Selector en tarjeta/lista o formulario. Actualiza columna y métricas. |
+| Cambiar estado | Selector en tarjeta, lista, entrevistas o formulario. Actualiza columna y métricas. |
+| Entrevistas | Agrupa las postulaciones en estado `Entrevista`, ordenadas por próxima acción. Permite editar o cambiar de estado. |
+| Empresas | Agrupa automáticamente por empresa: total, estados, última fecha y fuentes. Incluye búsqueda. |
+| Calendario | Vista mensual con fechas de postulación y próximas acciones. Permite navegar meses, seleccionar un día y abrir la postulación. |
+| Estadísticas | KPIs, embudo de conversión, distribución por estado, fuentes, evolución de 6 meses y ranking de empresas, calculados desde PostgreSQL. |
+| Mi perfil | Edita nombre, ciclo y carrera con `PATCH /auth/me`. Actualiza la tarjeta del sidebar y la sesión guardada. |
+| Configuración | Cambia la contraseña con `POST /auth/change-password` (revoca las demás sesiones), exporta CSV y elimina la cuenta. |
 | Propietario | Crear con usuario A, entrar con B: no aparece. Con el JWT de B, consultar/editar/borrar el UUID de A devuelve 404. |
 | Responsive | Probar móvil, menú hamburguesa, formulario y ambas vistas. Acciones visibles en dispositivos sin hover. |
 
-Validaciones: empresa 2–80, cargo 3–80, fecha válida y no futura, fuentes/estados permitidos, próxima acción hasta 120 y nota hasta 300 caracteres. Registro: nombre 2–80, ciclo 1–40, carrera 2–100 y correo válido. Contraseñas nuevas: 8–72 caracteres ASCII imprimibles. El backend rechaza campos inesperados como `ownerId`, `id` o `createdAt`.
+Validaciones: empresa 2–80, cargo 3–80, fecha válida y no futura, fuentes/estados permitidos, próxima acción hasta 120, `fechaProximaAccion` como fecha `YYYY-MM-DD` o `null`, y nota hasta 300 caracteres. Registro: nombre 2–80, ciclo 1–40, carrera 2–100 y correo válido. Contraseñas nuevas: 8–72 caracteres ASCII imprimibles. El backend rechaza campos inesperados como `ownerId`, `id` o `createdAt`.
 
 ## Persistencia y transición desde el prototipo
 
@@ -261,6 +272,7 @@ Luego sube la rama que quieras conectar en Render/Vercel. La preparación del pr
 
 - [Sprint 1](docs/sprint-1.md): autenticación, recuperación y cuentas.
 - [Sprint 2](docs/sprint-2-parcial.md): postulaciones por propietario.
+- [Sprint 3](docs/sprint-3.md): navegación, módulos de gestión y análisis.
 - [Pruebas y evidencias](docs/pruebas-iniciales.md).
 
-Pendiente fuera de estos sprints: Entrevistas, Empresas, Calendario, Estadísticas avanzadas, drag & drop, detalle con historial, PDF/Excel, recuperación por correo real y login con Google. Los accesos existentes a esos módulos permanecen visuales. La recuperación demo está identificada como académica y se deshabilita en producción.
+Pendiente fuera de estos sprints: drag & drop entre columnas, historial de cambios por postulación, recordatorios por correo o notificaciones, PDF/Excel con formato, recuperación por correo real y login con Google. La recuperación demo está identificada como académica y se deshabilita en producción.

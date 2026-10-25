@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { DataSource, Repository } from 'typeorm';
@@ -6,7 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { publicUser, User } from '../users/user.entity';
 import { environment } from '../config';
-import { RegisterDto } from './auth.dto';
+import { ChangePasswordDto, RegisterDto, UpdateProfileDto } from './auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -73,6 +73,32 @@ export class AuthService {
       });
     });
     return { message: 'Contraseña actualizada. Inicia sesión de nuevo.' };
+  }
+
+  async updateProfile(id: string, dto: UpdateProfileDto) {
+    const patch: Partial<User> = {};
+    if (dto.nombre !== undefined) patch.nombre = dto.nombre;
+    if (dto.ciclo !== undefined) patch.ciclo = dto.ciclo;
+    if (dto.carrera !== undefined) patch.carrera = dto.carrera;
+    if (Object.keys(patch).length) await this.users.update(id, patch);
+    const user = await this.users.findOneBy({ id });
+    if (!user) throw new UnauthorizedException('Usuario no encontrado.');
+    return publicUser(user);
+  }
+
+  async changePassword(id: string, dto: ChangePasswordDto) {
+    const user = await this.users.createQueryBuilder('u').addSelect('u.passwordHash')
+      .where('u.id = :id', { id }).getOne();
+    if (!user || !(await bcrypt.compare(dto.currentPassword, user.passwordHash))) {
+      throw new BadRequestException('La contraseña actual es incorrecta.');
+    }
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('La nueva contraseña debe ser diferente a la actual.');
+    }
+    user.passwordHash = await bcrypt.hash(dto.newPassword, 12);
+    user.tokenVersion += 1;
+    await this.users.save(user);
+    return this.session(user);
   }
 
   async deleteAccount(id: string, password: string) {

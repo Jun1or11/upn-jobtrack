@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Postulacion } from '../types';
 import { ESTADOS, FUENTES } from '../constants/postulaciones';
+import { hoyISO } from '../utils/fechas';
 
 interface ModalNuevaPostulacionProps {
   /** Si se recibe, el modal entra en modo edición y precarga los datos. */
@@ -12,15 +13,14 @@ interface ModalNuevaPostulacionProps {
 type FormularioPostulacion = Omit<Postulacion, 'id' | 'createdAt'>;
 type FormErrors = Partial<Record<keyof FormularioPostulacion, string>>;
 
-const hoy = () => new Date().toISOString().slice(0, 10);
-
 const buildInitialForm = (p?: Postulacion): FormularioPostulacion => ({
   empresa: p?.empresa ?? '',
   cargo: p?.cargo ?? '',
   fuente: p?.fuente ?? 'LinkedIn',
-  fecha: p?.fecha ?? hoy(),
+  fecha: p?.fecha ?? hoyISO(),
   estado: p?.estado ?? 'Por postular',
   proximaAccion: p?.proximaAccion ?? '',
+  fechaProximaAccion: p?.fechaProximaAccion ?? '',
   nota: p?.nota ?? '',
 });
 
@@ -57,7 +57,11 @@ const ModalNuevaPostulacion: React.FC<ModalNuevaPostulacionProps> = ({
 
     // Fecha: requerida y no futura
     if (!form.fecha) newErrors.fecha = 'La fecha es requerida.';
-    else if (form.fecha > hoy()) newErrors.fecha = 'La fecha no puede ser futura.';
+    else if (form.fecha > hoyISO()) newErrors.fecha = 'La fecha no puede ser futura.';
+
+    if (form.fechaProximaAccion && !/^\d{4}-\d{2}-\d{2}$/.test(form.fechaProximaAccion)) {
+      newErrors.fechaProximaAccion = 'Usa una fecha válida.';
+    }
 
     // Textos opcionales con límite
     if (form.proximaAccion.length > 120) newErrors.proximaAccion = 'Máximo 120 caracteres.';
@@ -76,6 +80,7 @@ const ModalNuevaPostulacion: React.FC<ModalNuevaPostulacionProps> = ({
       empresa: form.empresa.trim(),
       cargo: form.cargo.trim(),
       proximaAccion: form.proximaAccion.trim(),
+      fechaProximaAccion: form.fechaProximaAccion?.trim() || null,
       nota: form.nota.trim(),
     }); } catch (e) { setSaveError(e instanceof Error ? e.message : 'No se pudo guardar.'); }
     finally { setSaving(false); }
@@ -192,13 +197,33 @@ const ModalNuevaPostulacion: React.FC<ModalNuevaPostulacionProps> = ({
                 <input id="nv-fecha" type="date"
                   className={`form-control${errors.fecha ? ' form-control--error' : ''}`}
                   value={form.fecha}
-                  max={hoy()}
+                  max={hoyISO()}
                   onChange={e => update('fecha', e.target.value)}
                   disabled={saving}
                 />
                 {errors.fecha && (
                   <span style={{ fontSize: '0.78rem', color: 'var(--color-error)' }}>
                     {errors.fecha}
+                  </span>
+                )}
+              </div>
+
+              {/* Fecha de próxima acción */}
+              <div className="input-group">
+                <label htmlFor="nv-fecha-proxima">Fecha de próxima acción</label>
+                <input id="nv-fecha-proxima" type="date"
+                  className={`form-control${errors.fechaProximaAccion ? ' form-control--error' : ''}`}
+                  value={form.fechaProximaAccion ?? ''}
+                  onChange={e => update('fechaProximaAccion', e.target.value)}
+                  disabled={saving}
+                />
+                {errors.fechaProximaAccion ? (
+                  <span style={{ fontSize: '0.78rem', color: 'var(--color-error)' }}>
+                    {errors.fechaProximaAccion}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-text-light)' }}>
+                    Opcional. Se usará en el calendario y recordatorios.
                   </span>
                 )}
               </div>

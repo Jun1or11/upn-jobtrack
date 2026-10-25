@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
-import { obtenerSesion, cerrarSesion } from './utils/storage';
+import { obtenerSesion, cerrarSesion, guardarSesion } from './utils/storage';
 import { api } from './utils/api';
 import type { SesionAuth, Usuario } from './types';
 import './styles/global.css';
@@ -29,7 +29,11 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const reset = () => { setSesion(null); setView('login'); };
+    const reset = () => {
+      setSesion(null);
+      setView('login');
+      if (window.location.hash !== '#/dashboard') window.location.hash = '/dashboard';
+    };
     window.addEventListener('jobtrack:logout', reset);
     const sync = (e: StorageEvent) => { if (e.key === 'jobtrack_session' && !obtenerSesion()) reset(); };
     window.addEventListener('storage', sync);
@@ -45,6 +49,7 @@ const App: React.FC = () => {
   const handleLogin = () => {
     const s = obtenerSesion();
     if (s) {
+      window.location.hash = '/dashboard';
       setSesion(s);
       setView('dashboard');
     }
@@ -52,7 +57,16 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     try { await api('/auth/logout', { method: 'POST' }); }
-    finally { cerrarSesion(); }
+    finally {
+      cerrarSesion();
+      window.location.hash = '/dashboard';
+    }
+  };
+
+  const handleSesionChange = (nueva: SesionAuth) => {
+    guardarSesion(nueva);
+    setSesion(nueva);
+    setView('dashboard');
   };
 
   // Splash screen mientras verifica sesión
@@ -94,7 +108,7 @@ const App: React.FC = () => {
   }
 
   if (view === 'dashboard' && sesion) {
-    return <DashboardPage sesion={sesion} onLogout={handleLogout} />;
+    return <DashboardPage sesion={sesion} onLogout={handleLogout} onSesionChange={handleSesionChange} />;
   }
 
   return <LoginPage onLogin={handleLogin} />;

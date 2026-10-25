@@ -1,4 +1,4 @@
-import { IsEmail, IsString, Length, Matches, MaxLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 import { NormalizeEmail, Trim } from '../common/validation';
 
 export class EmailDto {
@@ -23,4 +23,15 @@ export class ResetPasswordDto {
 
 export class DeleteAccountDto {
   @IsString() @Length(1, 72) @Matches(/^[\x20-\x7E]+$/) password!: string;
+}
+
+export class UpdateProfileDto {
+  @IsOptional() @Trim() @IsString() @Length(2, 80) nombre?: string;
+  @IsOptional() @Trim() @IsString() @Length(1, 40) ciclo?: string;
+  @IsOptional() @Trim() @IsString() @Length(2, 100) carrera?: string;
+}
+
+export class ChangePasswordDto {
+  @IsString() @Length(1, 72) @Matches(/^[\x20-\x7E]+$/, { message: 'La contraseña debe usar caracteres ASCII imprimibles.' }) currentPassword!: string;
+  @IsString() @Length(8, 72) @Matches(/^[\x20-\x7E]+$/, { message: 'La contraseña debe usar caracteres ASCII imprimibles.' }) newPassword!: string;
 }

@@ -17,6 +17,7 @@ export class Postulacion {
   @Column({ type: 'date' }) fecha!: string;
   @Column({ type: 'varchar', length: 20 }) estado!: Estado;
   @Column({ length: 120, default: '' }) proximaAccion!: string;
+  @Column({ type: 'date', nullable: true }) fechaProximaAccion!: string | null;
   @Column({ length: 300, default: '' }) nota!: string;
   @CreateDateColumn({ type: 'timestamptz' }) createdAt!: Date;
 }

@@ -3,13 +3,13 @@
 @id = REEMPLAZAR_CON_UUID_POSTULACION
 @resetToken = REEMPLAZAR_CON_TOKEN_DEMO
 
-### Registro: devuelve token, expiraEn y usuario. Cambia email para repetir.
+### Registro: devuelve token, expiraEn y usuario. Cambia el email para repetir.
 POST {{base}}/auth/register
 Content-Type: application/json
 
 {"email":"ana@upn.pe","password":"Password123!","nombre":"Ana Estudiante","ciclo":"9","carrera":"Ingeniería de Sistemas"}
 
-### Login demo después de npm run seed. Copia token en @token.
+### Login demo después de npm run seed. Copia el token en @token.
 POST {{base}}/auth/login
 Content-Type: application/json
 
@@ -19,6 +19,20 @@ Content-Type: application/json
 GET {{base}}/auth/me
 Authorization: Bearer {{token}}
 
+### Actualizar perfil: todos los campos son opcionales
+PATCH {{base}}/auth/me
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"nombre":"Junior Estudiante","ciclo":"10","carrera":"Ingeniería de Software"}
+
+### Cambiar contraseña: devuelve una sesión nueva y revoca los JWT anteriores
+POST {{base}}/auth/change-password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"currentPassword":"jobtrack-demo","newPassword":"NuevaClave123!"}
+
 ### Listar solo las postulaciones propias
 GET {{base}}/postulaciones
 Authorization: Bearer {{token}}
@@ -27,12 +41,12 @@ Authorization: Bearer {{token}}
 GET {{base}}/postulaciones?q=analista&estado=Entrevista
 Authorization: Bearer {{token}}
 
-### Crear: copia id de la respuesta en @id
+### Crear: copia el id de la respuesta en @id. fechaProximaAccion es opcional.
 POST {{base}}/postulaciones
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
-{"empresa":"Empresa Prueba","cargo":"Analista de Datos","fuente":"LinkedIn","fecha":"2026-01-01","estado":"Por postular","proximaAccion":"Enviar CV","nota":"Demostración"}
+{"empresa":"Empresa Prueba","cargo":"Analista de Datos","fuente":"LinkedIn","fecha":"2026-01-01","estado":"Por postular","proximaAccion":"Enviar CV","fechaProximaAccion":"2026-12-01","nota":"Demostración"}
 
 ### Consultar: con token de otro usuario debe devolver 404
 GET {{base}}/postulaciones/{{id}}
@@ -43,7 +57,14 @@ PATCH {{base}}/postulaciones/{{id}}
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
-{"cargo":"Analista Junior","estado":"Entrevista"}
+{"cargo":"Analista Junior","estado":"Entrevista","fechaProximaAccion":"2026-12-15"}
+
+### Limpiar la fecha de próxima acción
+PATCH {{base}}/postulaciones/{{id}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"fechaProximaAccion":null}
 
 ### Eliminar: con token de otro usuario devuelve 404
 DELETE {{base}}/postulaciones/{{id}}

@@ -9,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { User } from '../src/users/user.entity';
 import { Postulacion } from '../src/postulaciones/postulacion.entity';
 import { Initial1780000000000 } from '../src/database/migrations/1780000000000-initial';
+import { AddFechaProximaAccion1780000000001 } from '../src/database/migrations/1780000000001-add-fecha-proxima-accion';
 
 // Solo PostgreSQL real. Crea un schema exclusivo y lo elimina al finalizar.
 describe('API NestJS + PostgreSQL', () => {
@@ -35,7 +36,10 @@ describe('API NestJS + PostgreSQL', () => {
     await db.initialize();
     await db.query(`CREATE SCHEMA "${schema}"`);
     const runner = db.createQueryRunner();
-    try { await new Initial1780000000000().up(runner); }
+    try {
+      await new Initial1780000000000().up(runner);
+      await new AddFechaProximaAccion1780000000001().up(runner);
+    }
     finally { await runner.release(); }
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(getDataSourceToken()).useValue(db).compile();
@@ -71,14 +75,39 @@ describe('API NestJS + PostgreSQL', () => {
     await api().get('/api/postulaciones').set('Authorization', `Bearer ${expired}`).expect(401);
   });
 
+  it('actualiza el perfil propio y rechaza campos desconocidos', async () => {
+    await api().patch('/api/auth/me').send({ nombre: 'Sin sesión' }).expect(401);
+    const auth = `Bearer ${a.token}`;
+    await api().patch('/api/auth/me').set('Authorization', auth).send({ nombre: 'A' }).expect(400);
+    await api().patch('/api/auth/me').set('Authorization', auth)
+      .send({ nombre: 'Usuario Actualizado', ciclo: '10', carrera: 'Ingeniería de Software', extra: 'x' }).expect(400);
+    const actualizado = await api().patch('/api/auth/me').set('Authorization', auth)
+      .send({ nombre: 'Usuario Actualizado', ciclo: '10', carrera: 'Ingeniería de Software' }).expect(200);
+    expect(actualizado.body.nombre).toBe('Usuario Actualizado');
+    expect(actualizado.body.carrera).toBe('Ingeniería de Software');
+    expect(actualizado.body).not.toHaveProperty('passwordHash');
+    const me = await api().get('/api/auth/me').set('Authorization', auth).expect(200);
+    expect(me.body.ciclo).toBe('10');
+  });
+
   it('crea, lista, busca, filtra y actualiza sin aceptar ownerId del cliente', async () => {
     const auth = `Bearer ${a.token}`;
     await api().post('/api/postulaciones').set('Authorization', auth).send({ ...job, empresa: ' ' }).expect(400);
     await api().post('/api/postulaciones').set('Authorization', auth).send({ ...job, ownerId: b.usuario.id }).expect(400);
-    jobId = (await api().post('/api/postulaciones').set('Authorization', auth).send(job).expect(201)).body.id;
+    await api().post('/api/postulaciones').set('Authorization', auth)
+      .send({ ...job, fechaProximaAccion: '2026-02-30' }).expect(400);
+    const created = await api().post('/api/postulaciones').set('Authorization', auth)
+      .send({ ...job, fechaProximaAccion: '2026-12-01' }).expect(201);
+    jobId = created.body.id;
+    expect(created.body.fechaProximaAccion).toBe('2026-12-01');
     expect((await api().get('/api/postulaciones?q=Prueba&estado=Postulado').set('Authorization', auth).expect(200)).body).toHaveLength(1);
-    const edited = await api().patch(`/api/postulaciones/${jobId}`).set('Authorization', auth).send({ estado: 'Oferta', cargo: 'Analista Senior' }).expect(200);
+    const edited = await api().patch(`/api/postulaciones/${jobId}`).set('Authorization', auth)
+      .send({ estado: 'Oferta', cargo: 'Analista Senior', fechaProximaAccion: '2026-12-15' }).expect(200);
     expect(edited.body.cargo).toBe('Analista Senior');
+    expect(edited.body.fechaProximaAccion).toBe('2026-12-15');
+    const cleared = await api().patch(`/api/postulaciones/${jobId}`).set('Authorization', auth)
+      .send({ fechaProximaAccion: null }).expect(200);
+    expect(cleared.body.fechaProximaAccion).toBeNull();
     await api().patch(`/api/postulaciones/${jobId}`).set('Authorization', auth).send({ estado: null }).expect(400);
   });
 
@@ -106,18 +135,34 @@ describe('API NestJS + PostgreSQL', () => {
     a = (await api().post('/api/auth/login').send({ email, password: 'NewPassword123!' }).expect(200)).body;
   });
 
+  it('cambia la contraseña, revoca la sesión anterior y entrega una nueva', async () => {
+    const auth = `Bearer ${a.token}`;
+    await api().post('/api/auth/change-password').set('Authorization', auth)
+      .send({ currentPassword: 'incorrecta', newPassword: 'FinalPassword123!' }).expect(400);
+    await api().post('/api/auth/change-password').set('Authorization', auth)
+      .send({ currentPassword: 'NewPassword123!', newPassword: 'NewPassword123!' }).expect(400);
+    const changed = await api().post('/api/auth/change-password').set('Authorization', auth)
+      .send({ currentPassword: 'NewPassword123!', newPassword: 'FinalPassword123!' }).expect(200);
+    expect(changed.body.usuario.email).toBe(email);
+    expect(changed.body).not.toHaveProperty('passwordHash');
+    await api().get('/api/auth/me').set('Authorization', auth).expect(401);
+    await api().get('/api/auth/me').set('Authorization', `Bearer ${changed.body.token}`).expect(200);
+    await api().post('/api/auth/login').send({ email, password: 'NewPassword123!' }).expect(401);
+    a = (await api().post('/api/auth/login').send({ email, password: 'FinalPassword123!' }).expect(200)).body;
+  });
+
   it('cierra sesión y revoca el JWT', async () => {
     await api().post('/api/auth/logout').set('Authorization', `Bearer ${a.token}`).expect(200);
     await api().get('/api/auth/me').set('Authorization', `Bearer ${a.token}`).expect(401);
-    a = (await api().post('/api/auth/login').send({ email, password: 'NewPassword123!' }).expect(200)).body;
+    a = (await api().post('/api/auth/login').send({ email, password: 'FinalPassword123!' }).expect(200)).body;
   });
 
   it('exige contraseña al eliminar cuenta y borra sus postulaciones en cascada', async () => {
     await api().post('/api/postulaciones').set('Authorization', `Bearer ${a.token}`).send(job).expect(201);
     await api().delete('/api/auth/account').set('Authorization', `Bearer ${a.token}`).send({ password: 'incorrecta' }).expect(401);
-    await api().delete('/api/auth/account').set('Authorization', `Bearer ${a.token}`).send({ password: 'NewPassword123!' }).expect(200);
+    await api().delete('/api/auth/account').set('Authorization', `Bearer ${a.token}`).send({ password: 'FinalPassword123!' }).expect(200);
     expect(await db.getRepository(Postulacion).countBy({ ownerId: a.usuario.id })).toBe(0);
     await api().get('/api/auth/me').set('Authorization', `Bearer ${a.token}`).expect(401);
-    await api().post('/api/auth/login').send({ email, password: 'NewPassword123!' }).expect(401);
+    await api().post('/api/auth/login').send({ email, password: 'FinalPassword123!' }).expect(401);
   });
 });
